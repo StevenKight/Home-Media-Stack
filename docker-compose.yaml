@@ -1,0 +1,304 @@
+---
+# ============================================================
+#  Home Media Server Stack
+#  Services: Jellyfin, Filebrowser, Sonarr, Radarr,
+#            Shoko Server, Bazarr, Jellyseerr, Pi-hole, Unbound
+# ============================================================
+#
+#  BEFORE YOU START — edit the variables below:
+#
+#  PUID / PGID  — run `id` in your terminal to get your user's
+#                 UID and GID. Keeps file permissions clean.
+#
+#  TZ           — your timezone, e.g. America/New_York
+#                 Full list: https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+#
+#  Paths        — update every /srv/... path to match where
+#                 you actually want data stored on your server.
+#
+# ============================================================
+
+services:
+
+  # ----------------------------------------------------------
+  #  JELLYFIN — Media server
+  #  Access: http://<server-ip>:8096
+  # ----------------------------------------------------------
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    restart: unless-stopped
+    environment:
+      - PUID=1000               # replace with your UID
+      - PGID=1000               # replace with your GID
+      - TZ=America/New_York     # replace with your timezone
+    volumes:
+      - /srv/jellyfin/config:/config          # Jellyfin config and database
+      - /srv/jellyfin/cache:/cache            # Transcoding cache
+      - /srv/media/movies:/media/movies       # Your movies folder
+      - /srv/media/tvshows:/media/tvshows     # Your TV shows folder
+      - /srv/media/anime:/media/anime         # Your anime folder
+      - /srv/media/music:/media/music         # Your music folder
+      - /srv/media/photos:/media/photos       # Your photos folder
+    ports:
+      - 8096:8096               # Web UI (HTTP)
+      - 8920:8920               # Web UI (HTTPS, optional)
+    network_mode: host          # Needed for local network discovery (DLNA)
+    devices:
+      - /dev/dri:/dev/dri       # Hardware transcoding (Intel iGPU / AMD)
+                                # Remove these two lines if no iGPU available
+
+
+  # ----------------------------------------------------------
+  #  FILEBROWSER — Web-based file manager
+  #  Access: http://<server-ip>:8080
+  #  Default login: admin / admin (change on first login!)
+  # ----------------------------------------------------------
+  filebrowser:
+    image: filebrowser/filebrowser:latest
+    container_name: filebrowser
+    restart: unless-stopped
+    user: "1000:1000"           # replace with your UID:GID
+    volumes:
+      - /srv/media:/srv         # Root of what Filebrowser can see
+      - /media:/media           # Auto-mounted USB/SD drives appear here
+      - /srv/filebrowser/filebrowser.db:/database/filebrowser.db
+      - /srv/filebrowser/settings.json:/.filebrowser.json
+    ports:
+      - 8080:80
+
+
+  # ----------------------------------------------------------
+  #  SONARR — TV show and anime manager
+  #  Access: http://<server-ip>:8989
+  # ----------------------------------------------------------
+  sonarr:
+    image: lscr.io/linuxserver/sonarr:latest
+    container_name: sonarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes:
+      - /srv/sonarr/config:/config
+      - /srv/media/tvshows:/media/tvshows     # Must match Jellyfin's path
+      - /srv/media/anime:/media/anime         # Must match Jellyfin's path
+      - /srv/downloads:/downloads             # Torrent client download folder
+    ports:
+      - 8989:8989
+
+
+  # ----------------------------------------------------------
+  #  RADARR — Movie manager
+  #  Access: http://<server-ip>:7878
+  # ----------------------------------------------------------
+  radarr:
+    image: lscr.io/linuxserver/radarr:latest
+    container_name: radarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes:
+      - /srv/radarr/config:/config
+      - /srv/media/movies:/media/movies       # Must match Jellyfin's path
+      - /srv/downloads:/downloads
+    ports:
+      - 7878:7878
+
+
+  # ----------------------------------------------------------
+  #  SHOKO SERVER — Anime library manager (uses AniDB)
+  #  Access: http://<server-ip>:8111
+  #  Set up Shoko first, then install the Jellyfin plugin from:
+  #  https://shokoanime.com/downloads/shoko-jellyfin
+  # ----------------------------------------------------------
+  shoko:
+    image: ghcr.io/shokoanime/server:latest
+    container_name: shoko
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes:
+      - /srv/shoko/config:/home/shoko/.shoko   # Shoko config and database
+      - /srv/media/anime:/media/anime          # Must match Jellyfin's path
+    ports:
+      - 8111:8111
+
+
+  # ----------------------------------------------------------
+  #  BAZARR — Automatic subtitle downloader
+  #  Access: http://<server-ip>:6767
+  #  Connect to Sonarr and Radarr inside Bazarr's settings
+  # ----------------------------------------------------------
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+    volumes:
+      - /srv/bazarr/config:/config
+      - /srv/media/movies:/media/movies       # Must match Radarr's path
+      - /srv/media/tvshows:/media/tvshows     # Must match Sonarr's path
+      - /srv/media/anime:/media/anime         # Must match Sonarr's path
+    ports:
+      - 6767:6767
+
+
+  # ----------------------------------------------------------
+  #  JELLYSEERR — Discovery and request manager
+  #  Access: http://<server-ip>:5055
+  #  Connects to Jellyfin, Sonarr, and Radarr.
+  #  Anime recommendations via TMDB (good for popular titles).
+  #  For deeper anime discovery, use AniList.com separately
+  #  and request through Jellyseerr once you find something.
+  # ----------------------------------------------------------
+  jellyseerr:
+    image: fallenbagel/jellyseerr:latest
+    container_name: jellyseerr
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=America/New_York
+    volumes:
+      - /srv/jellyseerr/config:/app/config
+    ports:
+      - 5055:5055
+
+
+  # ----------------------------------------------------------
+  #  PI-HOLE — Network-wide ad and tracker blocker (optional)
+  #  Access: http://<server-ip>:8053/admin
+  #  After setup, point your router's DNS to this server's IP.
+  #  Unbound (below) is set as Pi-hole's upstream DNS resolver
+  #  so no third-party DNS provider sees your queries.
+  # ----------------------------------------------------------
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    depends_on:
+      - unbound               # Wait for Unbound to start first
+    environment:
+      - TZ=America/New_York
+      - WEBPASSWORD=changeme    # Set a strong password here!
+      - WEB_PORT=8053           # Avoids conflict with other services on port 80
+      - PIHOLE_DNS_=unbound#5335  # Use Unbound as upstream — no third-party DNS
+    volumes:
+      - /srv/pihole/etc:/etc/pihole
+      - /srv/pihole/dnsmasq:/etc/dnsmasq.d
+    ports:
+      - 8053:8053               # Web admin UI
+      - 53:53/tcp               # DNS
+      - 53:53/udp               # DNS
+    cap_add:
+      - NET_ADMIN
+    networks:
+      - dns-net
+
+
+  # ----------------------------------------------------------
+  #  UNBOUND — Local recursive DNS resolver
+  #  No access needed — runs silently in the background.
+  #  Resolves DNS queries directly from root servers so no
+  #  third party (Cloudflare, Google, ISP) sees your queries.
+  #  Pi-hole forwards to Unbound on port 5335.
+  # ----------------------------------------------------------
+  unbound:
+    image: mvance/unbound:latest
+    container_name: unbound
+    restart: unless-stopped
+    volumes:
+      - /srv/unbound:/opt/unbound/etc/unbound
+    networks:
+      dns-net:
+        aliases:
+          - unbound
+
+
+networks:
+  dns-net:
+    driver: bridge
+
+
+# ============================================================
+#  GETTING STARTED
+#
+#  1. Install Docker:
+#     curl -fsSL https://get.docker.com | sh
+#     sudo usermod -aG docker $USER
+#     (log out and back in after this)
+#
+#  2. Create your media folders:
+#     sudo mkdir -p /srv/media/{movies,tvshows,anime,music,photos}
+#     sudo mkdir -p /srv/{jellyfin,filebrowser,sonarr,radarr,shoko,bazarr,jellyseerr,pihole,unbound}
+#     sudo mkdir -p /srv/downloads
+#     sudo chown -R $USER:$USER /srv
+#
+#  3. Find your PUID and PGID:
+#     id
+#     Update all PUID=1000 / PGID=1000 lines above to match.
+#
+#  4. Create Filebrowser config file:
+#     echo '{}' > /srv/filebrowser/settings.json
+#     touch /srv/filebrowser/filebrowser.db
+#
+#  5. Start everything:
+#     docker compose up -d
+#
+#  6. Check all containers are running:
+#     docker compose ps
+#
+#  7. View logs for a specific service if something is wrong:
+#     docker compose logs jellyfin
+#
+#  HARDWARE TRANSCODING NOTE:
+#  If your CPU has an Intel iGPU, run this to enable it:
+#     sudo apt install -y intel-media-va-driver-non-free
+#     sudo usermod -aG render $USER
+#  Then in Jellyfin: Dashboard > Playback > enable Intel QSV
+#
+#  SHOKO + JELLYFIN SETUP:
+#  After Shoko is running and has scanned your anime folder:
+#  1. In Jellyfin, install the Shoko plugin from the plugin catalog
+#  2. Set your anime library metadata source to Shoko
+#  3. This gives you proper AniDB metadata, grouping, and artwork
+#
+#  BAZARR SETUP:
+#  1. Open Bazarr at :6767
+#  2. Go to Settings > Sonarr, enter URL http://sonarr:8989
+#     and paste your Sonarr API key (found in Sonarr > Settings > General)
+#  3. Same for Radarr at http://radarr:7878
+#  4. Add OpenSubtitles as a provider (free account required)
+#  5. Set your preferred subtitle languages (English, etc.)
+#
+#  JELLYSEERR SETUP:
+#  1. Open Jellyseerr at :5055
+#  2. Sign in with your Jellyfin account when prompted
+#  3. Connect to Sonarr: http://sonarr:8989 + API key
+#  4. Connect to Radarr: http://radarr:7878 + API key
+#  5. For anime: use Jellyseerr for popular titles
+#     For niche/seasonal anime: browse AniList.com to find
+#     titles, then search and request them in Jellyseerr
+#
+#  UNBOUND + PI-HOLE SETUP:
+#  Unbound starts automatically and Pi-hole is pre-configured
+#  to use it via PIHOLE_DNS_=unbound#5335 in the compose file.
+#  After both containers are running:
+#  1. Open Pi-hole at :8053/admin and verify Unbound is the
+#     upstream resolver under Settings > DNS
+#  2. Log into your router's admin panel
+#  3. Set your router's DNS server to this server's IP address
+#  4. All devices on your network will now use Pi-hole + Unbound
+#     — no queries visible to Cloudflare, Google, or your ISP
+#  5. Test it's working: visit pi-hole at :8053/admin and
+#     watch the query log — you should see your devices' traffic
+#
+# ============================================================
