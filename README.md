@@ -8,17 +8,16 @@ Designed for local network use only. No port forwarding or external access requi
 
 ## Stack Overview
 
-| Service | Purpose | Port |
+| Service | Purpose | Default Port |
 |---|---|---|
 | [Jellyfin](https://jellyfin.org) | Media server — stream everything | `:8096` |
+| [Jellyseerr](https://github.com/Fallenbagel/jellyseerr) | Discovery, recommendations, and requests | `:5055` |
 | [Sonarr](https://sonarr.tv) | TV show and anime library manager | `:8989` |
 | [Radarr](https://radarr.video) | Movie library manager | `:7878` |
-| [Shoko Server](https://shokoanime.com) | Anime metadata via AniDB | `:8111` |
-| [Bazarr](https://www.bazarr.media) | Automatic subtitle downloader | `:6767` |
-| [Jellyseerr](https://github.com/Fallenbagel/jellyseerr) | Discovery, recommendations, and requests | `:5055` |
-| [Filebrowser](https://filebrowser.org) | Web file manager for USB/SD copying | `:8080` |
-| [Pi-hole](https://pi-hole.net) | Network-wide ad and tracker blocking | `:8053` |
-| [Unbound](https://nlnetlabs.nl/projects/unbound) | Local recursive DNS resolver | internal |
+| [Prowlarr](https://github.com/Prowlarr/Prowlarr) | Indexer manager — syncs sources to Sonarr and Radarr | `:9696` |
+| [qBittorrent](https://www.qbittorrent.org) | Torrent download client | `:8081` |
+
+All ports are configurable in `.env`.
 
 ---
 
@@ -29,21 +28,10 @@ No service in this stack sends personal data, usage habits, or identifiable info
 | Service | Telemetry | External Calls | Notes |
 |---|---|---|---|
 | Jellyfin | None | None | Disable usage stats on first launch |
-| Filebrowser | None | None | Fully local |
 | Sonarr / Radarr | None | TVDB / TMDB title lookups | IP + title name only |
-| Shoko Server | None | AniDB title lookups | IP + title name only |
-| Bazarr | None | OpenSubtitles / Animetosho | IP + title name only |
+| Prowlarr | None | Indexer sites for search results | IP + search terms only |
+| qBittorrent | None | Torrent peers and trackers | Standard torrent traffic |
 | Jellyseerr | None | TMDB for discovery browsing | IP + search terms only |
-| Pi-hole | None | Blocklist updates | Actively improves privacy |
-| Unbound | None | Root DNS servers directly | Eliminates third-party DNS visibility |
-
-DNS resolution chain:
-
-```
-Your devices → Pi-hole :53 (ad blocking) → Unbound :5335 (recursive resolution) → Root DNS servers
-```
-
-No Cloudflare, Google, or ISP DNS server sees your queries.
 
 ---
 
@@ -52,6 +40,7 @@ No Cloudflare, Google, or ISP DNS server sees your queries.
 - A machine running **Ubuntu Server 24.04 LTS** (bare metal, no desktop environment)
 - Static IP assigned to the server — via DHCP reservation on your router or set directly on the machine
 - Sufficient storage for your media library
+- `curl` and `jq` installed: `sudo apt install -y curl jq`
 
 ---
 
@@ -64,58 +53,62 @@ curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER
 ```
 
-Log out and back in after this for the group change to take effect.
+Log out and back in for the group change to take effect.
 
-### 2. Install udisks2 for USB/SD auto-mounting
-
-```bash
-sudo apt install -y udisks2
-```
-
-Mounts USB drives and SD cards to `/media/<label>` automatically when plugged in.
-
-### 3. Create directory structure
+### 2. Configure your environment
 
 ```bash
-sudo mkdir -p /srv/media/{movies,tvshows,anime,music,photos}
-sudo mkdir -p /srv/{jellyfin,filebrowser,sonarr,radarr,shoko,bazarr,jellyseerr,pihole,unbound}
-sudo mkdir -p /srv/downloads
-sudo chown -R $USER:$USER /srv
+cp .env.example .env
 ```
 
-### 4. Create Filebrowser config
+Open `.env` and fill in:
 
-```bash
-echo '{}' > /srv/filebrowser/settings.json
-touch /srv/filebrowser/filebrowser.db
-```
-
-### 5. Configure docker-compose.yml
-
-Before starting, edit `docker-compose.yml` and update the following:
-
-| Variable | What to change | How to find it |
+| Variable | What to set | How to find it |
 |---|---|---|
-| `PUID=1000` | Your user ID | Run `id` in terminal |
-| `PGID=1000` | Your group ID | Run `id` in terminal |
-| `user: "1000:1000"` | Your UID:GID (Filebrowser only) | Run `id` in terminal |
-| `TZ=America/New_York` | Your timezone | [Timezone list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) |
-| `WEBPASSWORD=changeme` | Pi-hole admin password | Set something strong |
+| `PUID` / `PGID` | Your user and group ID | Run `id` in terminal |
+| `TZ` | Your timezone | [Timezone list](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones) |
+| `MEDIA_ROOT` | Where your media storage is mounted | e.g. `/mnt/storage` or `/srv/media` |
+| `SERVER_IP` | This machine's local IP address | Run `hostname -I` |
 
-If your machine has no integrated GPU, remove these two lines from the Jellyfin section:
+All other values (ports, config paths) have sensible defaults and can be left as-is unless you have conflicts.
 
-```yaml
-    devices:
-      - /dev/dri:/dev/dri
-```
-
-If your media lives on a different drive, update all `/srv/media/...` paths to match — keep them consistent across all services.
-
-### 6. Start the stack
+### 3. Run the setup script
 
 ```bash
-docker compose up -d
+chmod +x setup.sh
+sudo ./setup.sh
 ```
+
+This creates all required directories with correct ownership, starts all containers, and waits until every service is ready. It prints URLs and next steps when complete.
+
+### 4. Complete Jellyfin first-run setup
+
+Open Jellyfin in your browser at `http://<server-ip>:8096` and follow the setup wizard. Create your admin account and add your media libraries. Note the password you set.
+
+Then add your credentials to `.env`:
+
+```
+JELLYFIN_USER=yourusername
+JELLYFIN_PASS=yourpassword
+```
+
+### 5. Complete Jellyseerr first-run setup
+
+Open Jellyseerr at `http://<server-ip>:5055/setup` and sign in with your Jellyfin credentials. You can skip the Sonarr and Radarr steps — the wiring script handles those automatically.
+
+### 6. Run the wiring script
+
+```bash
+chmod +x config.sh
+./config.sh
+```
+
+This authenticates with every service and wires them together automatically:
+
+- Connects qBittorrent to Sonarr and Radarr as the download client
+- Registers Prowlarr with Sonarr and Radarr for indexer syncing
+- Configures root media folders in Sonarr and Radarr
+- Links Jellyseerr to Sonarr, Radarr, and Jellyfin
 
 ### 7. Verify everything is running
 
@@ -133,82 +126,65 @@ docker compose logs jellyfin
 
 ## Post-Setup Configuration
 
-### Shoko + Jellyfin (Anime)
+### Prowlarr — Add indexers
 
-1. Open Shoko at `http://<server-ip>:8111` and let it scan your `/media/anime` folder
-2. In Jellyfin, go to **Admin > Plugins** and install the Shoko plugin
-3. Set your anime library metadata source to **Shoko**
+The wiring script connects Prowlarr to Sonarr and Radarr, but you still need to add your indexers. Go to **Indexers > Add Indexer**, search by name, and use the test button before saving. Once saved, Prowlarr pushes them to Sonarr and Radarr automatically — do not add indexers directly in either app.
 
-This gives you AniDB metadata, correct series grouping, and proper artwork across your entire anime library, including correct matching of files with non-standard naming.
+#### **Public indexers** (no account required):
 
-### Bazarr (Subtitles)
+| Indexer | Best for |
+|---|---|
+| YTS | Movies — very clean releases |
+| EZTV | TV shows |
+| The Pirate Bay | Broad coverage of everything |
+| 1337x | General — movies, TV, anime |
+| Nyaa | Anime — the standard, essentially required |
+| TokyoTosho | Anime — secondary source, good for niche titles |
 
-1. Open Bazarr at `http://<server-ip>:6767`
-2. Go to **Settings > Sonarr**, enter `http://sonarr:8989` and paste your Sonarr API key (found in Sonarr under **Settings > General**)
-3. Repeat for **Settings > Radarr** at `http://radarr:7878`
-4. Add **OpenSubtitles** as a provider (free account required)
-5. For anime, also add **Animetosho** — it has better coverage for seasonal and niche titles
-6. Set your preferred subtitle languages
+#### **Private trackers** (account required, some invite-only):
 
-### Jellyfin Audio and Subtitle Preferences (Anime)
+| Tracker | Best for |
+|---|---|
+| BTN (BroadcasTheNet) | TV shows — invite only, considered the best TV tracker |
+| PTP (PassThePopcorn) | Movies — invite only, extremely high quality |
+| AnimeBytes | Anime — better than Nyaa for older or niche titles, invite only |
+| MAM (MyAnonamouse) | Books and audiobooks |
 
-In Jellyfin, go to your **user settings > Playback** and set:
+### qBittorrent — Set a permanent password
 
-- **Preferred audio language:** Japanese
-- **Preferred subtitle language:** English
-- **Subtitle mode:** Always
+On first startup, qBittorrent generates a temporary password that changes on every restart. After the wiring script runs:
 
-These preferences apply automatically across all devices and episodes.
+1. Open qBittorrent at `http://<server-ip>:8081`
+2. Go to **Tools > Options > Web UI** and set a permanent password
+3. Add it to `.env`: `QBIT_PASS=yourpassword`
 
-### Jellyseerr (Discovery and Requests)
+### Jellyseerr — Requesting content
 
-1. Open Jellyseerr at `http://<server-ip>:5055`
-2. Sign in with your Jellyfin account when prompted
-3. Connect to **Sonarr**: `http://sonarr:8989` + API key
-4. Connect to **Radarr**: `http://radarr:7878` + API key
-
-For niche or seasonal anime, [AniList](https://anilist.co) has a more comprehensive recommendation engine than Jellyseerr's TMDB-based discovery. The typical workflow is to find a title on AniList, then search for and request it through Jellyseerr.
-
-### Pi-hole + Unbound (Private DNS)
-
-Unbound starts automatically and Pi-hole is pre-configured to forward to it via `PIHOLE_DNS_=unbound#5335` — no manual DNS configuration is needed beyond pointing your router at the server.
-
-1. Open Pi-hole at `http://<server-ip>:8053/admin` and confirm Unbound appears under **Settings > DNS**
-2. In your router's admin panel, set the primary DNS server to this server's IP address
-3. All devices on the network now resolve DNS through Pi-hole + Unbound with no third-party DNS visibility
-4. Confirm it is working by watching the live query log in the Pi-hole dashboard
-
-### Filebrowser (Offline Viewing)
-
-1. Open Filebrowser at `http://<server-ip>:8080`
-2. Default login is `admin` / `admin` — change this on first login
-3. Plug in a USB drive or SD card — it auto-mounts and appears under `/media` in Filebrowser
-4. Copy files from your library to the drive for offline viewing
+Users browse and request content through Jellyseerr. Requests flow automatically into Sonarr or Radarr without users needing access to any other service.
 
 ---
 
 ## Directory Structure
+
+Paths below reflect the defaults in `.env.example`. They can be changed to any location by editing `.env`.
 
 ```
 /srv/
 ├── media/
 │   ├── movies/          # Radarr output → Jellyfin source
 │   ├── tvshows/         # Sonarr output → Jellyfin source
-│   ├── anime/           # Sonarr + Shoko → Jellyfin source
+│   ├── anime/           # Sonarr output → Jellyfin source
 │   ├── music/           # Jellyfin music library
 │   └── photos/          # Jellyfin photo library
-├── downloads/           # Download client drop folder
+├── downloads/           # qBittorrent download folder
 ├── jellyfin/
 │   ├── config/          # Jellyfin config and database
 │   └── cache/           # Transcoding cache
 ├── sonarr/config/
 ├── radarr/config/
-├── shoko/config/
-├── bazarr/config/
-├── jellyseerr/config/
-├── filebrowser/
-├── pihole/
-└── unbound/
+├── prowlarr/config/
+├── qbittorrent/config/
+└── jellyseerr/config/
 ```
 
 ---
@@ -222,7 +198,7 @@ This stack runs well on modest hardware. Reference build:
 - **OS Drive:** Any SSD (NVMe recommended)
 - **Media Storage:** Any HDD or SSD with sufficient capacity
 
-The Ryzen 5 5500 has no integrated GPU. Remove the `devices: /dev/dri` lines from the Jellyfin section for this CPU. The 6-core processor handles software transcoding adequately, and most modern clients on a local network will direct play without triggering transcoding at all.
+The Ryzen 5 5500 has no integrated GPU. The `devices: /dev/dri` lines in the Jellyfin section of `docker-compose.yaml` are commented out by default for this reason. The 6-core processor handles software transcoding adequately, and most modern clients on a local network will direct play without triggering transcoding at all.
 
 For machines with an Intel integrated GPU, enable hardware transcoding after starting the stack:
 
@@ -231,7 +207,7 @@ sudo apt install -y intel-media-va-driver-non-free
 sudo usermod -aG render $USER
 ```
 
-Then in Jellyfin go to **Dashboard > Playback** and enable Intel QSV.
+Then in Jellyfin go to **Dashboard > Playback** and enable Intel QSV. Uncomment the `devices` section in `docker-compose.yaml` and restart the Jellyfin container.
 
 ---
 
@@ -256,12 +232,6 @@ docker compose pull && docker compose up -d
 # Check resource usage across containers
 docker stats
 ```
-
----
-
-## Contributing
-
-Contributions, custom implementations, and enhancements are welcome. Feel free to open a pull request or issue for additional service integrations, custom scripts and automations, hardware-specific configuration guides, or general improvements to the stack.
 
 ---
 
