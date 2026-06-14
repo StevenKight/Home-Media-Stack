@@ -209,6 +209,40 @@ services:
       - media-net
 
 
+  # ----------------------------------------------------------------------------
+  #  BAZARR — Automatic subtitle downloader
+  #  Access: http://<server-ip>:${BAZARR_PORT}
+  #
+  #  Monitors your Sonarr and Radarr libraries and automatically
+  #  downloads subtitles for all content. Supports OpenSubtitles
+  #  and Animetosho (recommended for anime).
+  #
+  #  config.sh connects Bazarr to Sonarr and Radarr automatically.
+  #  You still need to add subtitle providers (OpenSubtitles etc)
+  #  manually in the Bazarr web UI after setup.
+  # ----------------------------------------------------------------------------
+  bazarr:
+    image: lscr.io/linuxserver/bazarr:latest
+    container_name: bazarr
+    restart: unless-stopped
+    depends_on:
+      - sonarr
+      - radarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${BAZARR_CONFIG}:/config
+      - ${MEDIA_ROOT}/movies:/media/movies
+      - ${MEDIA_ROOT}/tvshows:/media/tvshows
+      - ${MEDIA_ROOT}/anime:/media/anime
+    ports:
+      - ${BAZARR_PORT}:6767
+    networks:
+      - media-net
+
+
 # ------------------------------------------------------------------------------
 #  Shared internal network
 #  Services reference each other by container name, e.g:

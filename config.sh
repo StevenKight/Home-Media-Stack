@@ -130,6 +130,7 @@ wait_for "Sonarr"      "http://${SERVER_IP}:${SONARR_PORT}/login"
 wait_for "Radarr"      "http://${SERVER_IP}:${RADARR_PORT}/login"
 wait_for "qBittorrent" "http://${SERVER_IP}:${QBIT_PORT}"
 wait_for "Jellyfin"    "http://${SERVER_IP}:${JELLYFIN_PORT}/health"
+wait_for "Bazarr"      "http://${SERVER_IP}:${BAZARR_PORT}"
 
 info "Waiting for Jellyseerr..."
 attempts=0
@@ -415,6 +416,44 @@ else
 fi
 
 # ------------------------------------------------------------------------------
+#  Connect Bazarr to Sonarr and Radarr
+# ------------------------------------------------------------------------------
+
+echo ""
+info "Connecting Bazarr to Sonarr..."
+
+BAZARR_SONARR=$(curl -sf -X PUT \
+    "http://${SERVER_IP}:${BAZARR_PORT}/api/sonarr" \
+    -H "X-API-KEY: ${BAZARR_API_KEY:-}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"ip\": \"sonarr\",
+        \"port\": ${SONARR_PORT},
+        \"apikey\": \"${SONARR_KEY}\",
+        \"ssl\": false,
+        \"base_url\": \"/\"
+    }" 2>/dev/null || echo "")
+
+success "Bazarr pointed at Sonarr — verify connection in Bazarr UI"
+
+echo ""
+info "Connecting Bazarr to Radarr..."
+
+BAZARR_RADARR=$(curl -sf -X PUT \
+    "http://${SERVER_IP}:${BAZARR_PORT}/api/radarr" \
+    -H "X-API-KEY: ${BAZARR_API_KEY:-}" \
+    -H "Content-Type: application/json" \
+    -d "{
+        \"ip\": \"radarr\",
+        \"port\": ${RADARR_PORT},
+        \"apikey\": \"${RADARR_KEY}\",
+        \"ssl\": false,
+        \"base_url\": \"/\"
+    }" 2>/dev/null || echo "")
+
+success "Bazarr pointed at Radarr — verify connection in Bazarr UI"
+
+# ------------------------------------------------------------------------------
 #  Connect Jellyseerr to Sonarr
 # ------------------------------------------------------------------------------
 
@@ -482,7 +521,13 @@ echo "  1. Add indexers in Prowlarr — they sync to Sonarr"
 echo "     and Radarr automatically:"
 echo "     http://${SERVER_IP}:${PROWLARR_PORT} > Indexers > Add Indexer"
 echo ""
-echo "  2. Set Jellyfin playback preferences (for anime):"
+echo "  2. Add subtitle providers in Bazarr:"
+echo "     http://${SERVER_IP}:${BAZARR_PORT}"
+echo "     Settings > Providers > Add Provider"
+echo "     Recommended: OpenSubtitles (free account required)"
+echo "     For anime: also add Animetosho"
+echo ""
+echo "  3. Set Jellyfin playback preferences (for anime):"
 echo "     User Settings > Playback"
 echo "     Audio: Japanese | Subtitles: English | Mode: Always"
 echo ""

@@ -16,6 +16,7 @@ Designed for local network use only. No port forwarding or external access requi
 | [Radarr](https://radarr.video) | Movie library manager | `:7878` |
 | [Prowlarr](https://github.com/Prowlarr/Prowlarr) | Indexer manager — syncs sources to Sonarr and Radarr | `:9696` |
 | [qBittorrent](https://www.qbittorrent.org) | Torrent download client | `:8081` |
+| [Bazarr](https://www.bazarr.media) | Automatic subtitle downloader | `:6767` |
 
 All ports are configurable in `.env`.
 
@@ -32,6 +33,7 @@ No service in this stack sends personal data, usage habits, or identifiable info
 | Prowlarr | None | Indexer sites for search results | IP + search terms only |
 | qBittorrent | None | Torrent peers and trackers | Standard torrent traffic |
 | Jellyseerr | None | TMDB for discovery browsing | IP + search terms only |
+| Bazarr | None | OpenSubtitles / Animetosho | IP + title name only |
 
 ---
 
@@ -158,9 +160,86 @@ On first startup, qBittorrent generates a temporary password that changes on eve
 2. Go to **Tools > Options > Web UI** and set a permanent password
 3. Add it to `.env`: `QBIT_PASS=yourpassword`
 
+### Bazarr — Subtitle provider setup
+
+The wiring script connects Bazarr to Sonarr and Radarr, but subtitle providers require your account credentials and must be added manually.
+
+1. Open Bazarr at `http://<server-ip>:6767`
+2. Go to **Settings > Providers** and add at least one provider:
+   - **OpenSubtitles.com** — free account required at opensubtitles.com
+   - **Animetosho** — no account needed, recommended for anime
+3. Go to **Settings > Languages**, create a language profile containing English, and set it as the default for both Series and Movies
+4. Go to **Movies** and **Series**, select all existing content, and bulk edit to assign the English profile — this covers content added before the profile was set
+5. Go to **System > Tasks** and run **Search for Missing Subtitles** to trigger an immediate download across your library
+
 ### Jellyseerr — Requesting content
 
 Users browse and request content through Jellyseerr. Requests flow automatically into Sonarr or Radarr without users needing access to any other service.
+
+---
+
+## Pre-Download Checklist
+
+Before requesting or downloading anything, verify the full pipeline is correctly wired. Work through this once after `config.sh` completes.
+
+### Prowlarr
+
+- Confirm at least one indexer is listed under **Indexers**
+- Click the test icon on each indexer to confirm it is reachable
+- Go to **Settings > Apps** and confirm Sonarr and Radarr both show green
+
+### Sonarr
+
+- Go to **Settings > Media Management > Root Folders** and confirm `/media/tvshows` and `/media/anime` are listed
+- Go to **Settings > Download Clients** and confirm qBittorrent shows green
+- Go to **Settings > Indexers** and confirm your Prowlarr indexers have synced through
+
+### Radarr
+
+- Go to **Settings > Media Management > Root Folders** and confirm `/media/movies` is listed
+- Go to **Settings > Download Clients** and confirm qBittorrent shows green
+- Go to **Settings > Indexers** and confirm your Prowlarr indexers have synced through
+
+### qBittorrent
+
+- Confirm you can log in with your permanent password
+- Go to **Tools > Options > Downloads** and confirm the default save path is `/downloads`
+- Go to **Tools > Options > Connection** — a red port status means port `6881` is not forwarded on your router, which will significantly reduce download speeds. Forward `6881` TCP and UDP to your server's LAN IP in your router's admin panel.
+
+### Bazarr
+
+- Go to **Settings > Sonarr** and **Settings > Radarr** and click **Test** on both — should return a version number
+- Confirm at least one subtitle provider is listed under **Settings > Providers**
+- Confirm a language profile is assigned under **Settings > Languages** with defaults set for both Series and Movies
+- Confirm your library is populated under **Movies** and **Series**
+
+### Jellyfin
+
+- Confirm all libraries exist and point to the correct folders under **Dashboard > Libraries**
+- Run a scan on each library to pick up any existing content
+- Go to your profile **Settings > Playback** and set:
+  - Preferred audio language: Japanese
+  - Preferred subtitle language: English
+  - Subtitle mode: Always
+
+### Jellyseerr
+
+- Go to **Settings > Services** and confirm both Sonarr and Radarr show green
+- Go to **Settings > Users** and configure request permissions for household members
+
+### End-to-End Test
+
+Run through this once before giving others access:
+
+1. Request a movie in Jellyseerr
+2. Confirm it appears in Radarr as Monitored
+3. Confirm a download starts in qBittorrent within a few minutes
+4. Confirm the file is imported in Radarr once downloaded
+5. Confirm the movie appears in Jellyfin
+6. Confirm subtitles were downloaded in Bazarr
+7. Play the movie in Jellyfin and confirm subtitles appear
+
+If every step passes the full pipeline is working correctly.
 
 ---
 
@@ -184,6 +263,7 @@ Paths below reflect the defaults in `.env.example`. They can be changed to any l
 ├── radarr/config/
 ├── prowlarr/config/
 ├── qbittorrent/config/
+├── bazarr/config/
 └── jellyseerr/config/
 ```
 

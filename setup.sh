@@ -135,6 +135,7 @@ make_dir "${QBIT_CONFIG}"
 make_dir "${JELLYFIN_CONFIG}"
 make_dir "${JELLYFIN_CACHE}"
 make_dir "${JELLYSEERR_CONFIG}"
+make_dir "${BAZARR_CONFIG}"
 
 # ------------------------------------------------------------------------------
 #  Set ownership on everything
@@ -152,7 +153,8 @@ chown -R "${PUID}:${PGID}" \
     "${QBIT_CONFIG}" \
     "${JELLYFIN_CONFIG}" \
     "${JELLYFIN_CACHE}" \
-    "${JELLYSEERR_CONFIG}"
+    "${JELLYSEERR_CONFIG}" \
+    "${BAZARR_CONFIG}"
 
 success "Ownership set"
 
@@ -174,6 +176,7 @@ wait_for "Sonarr"      "http://${SERVER_IP}:${SONARR_PORT}/login"
 wait_for "Radarr"      "http://${SERVER_IP}:${RADARR_PORT}/login"
 wait_for "qBittorrent" "http://${SERVER_IP}:${QBIT_PORT}"
 wait_for "Jellyfin"    "http://${SERVER_IP}:${JELLYFIN_PORT}/health"
+wait_for "Bazarr"      "http://${SERVER_IP}:${BAZARR_PORT}"
 
 info "Waiting for Jellyseerr..."
 attempts=0
@@ -211,6 +214,7 @@ echo "    ${QBIT_CONFIG}"
 echo "    ${JELLYFIN_CONFIG}"
 echo "    ${JELLYFIN_CACHE}"
 echo "    ${JELLYSEERR_CONFIG}"
+echo "    ${BAZARR_CONFIG}"
 echo ""
 echo "======================================"
 echo "  Containers Ready"
@@ -218,6 +222,7 @@ echo "======================================"
 echo ""
 echo "  Jellyfin:    http://${SERVER_IP}:${JELLYFIN_PORT}"
 echo "  Jellyseerr:  http://${SERVER_IP}:${JELLYSEERR_PORT}"
+echo "  Bazarr:      http://${SERVER_IP}:${BAZARR_PORT}"
 echo "  Sonarr:      http://${SERVER_IP}:${SONARR_PORT}"
 echo "  Radarr:      http://${SERVER_IP}:${RADARR_PORT}"
 echo "  Prowlarr:    http://${SERVER_IP}:${PROWLARR_PORT}"
