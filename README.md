@@ -1,5 +1,8 @@
 # Home Media Server Stack
 
+> This project is intended for use with legally obtained media. The authors take no responsibility for how the software is used.
+
+
 A self-hosted home media server built on Ubuntu Server 24.04 LTS and Docker. Automatically finds, downloads, organises, and subtitles movies, TV shows, and anime — fully local, no cloud accounts, no telemetry.
 
 Designed for local network use only. No port forwarding or external access required.
@@ -15,6 +18,7 @@ Designed for local network use only. No port forwarding or external access requi
 | [Prowlarr](https://github.com/Prowlarr/Prowlarr) | Indexer manager — syncs sources to Sonarr and Radarr | `:9696` |
 | [qBittorrent](https://www.qbittorrent.org) | Torrent download client | `:8081` |
 | [Bazarr](https://www.bazarr.media) | Automatic subtitle downloader | `:6767` |
+| [Shoko Server](https://shokoanime.com) | Anime library manager — AniDB identification and metadata | `:8111` |
 
 All ports are configurable in `.env`.
 
@@ -30,6 +34,7 @@ No service in this stack sends personal data, usage habits, or identifiable info
 | Prowlarr | None | Indexer sites for search results | IP + search terms only |
 | qBittorrent | None | Torrent peers and trackers | Standard torrent traffic |
 | Bazarr | None | OpenSubtitles / Animetosho | IP + title name only |
+| Shoko Server | None | AniDB for anime identification | IP + anime title only |
 
 ---
 
@@ -107,33 +112,14 @@ docker compose logs -f sonarr
 
 The wiring script connects Prowlarr to Sonarr and Radarr, but you still need to add your indexers. Go to **Indexers > Add Indexer**, search by name, and use the test button before saving. Once saved, Prowlarr pushes them to Sonarr and Radarr automatically — do not add indexers directly in either app.
 
-#### **Public indexers** (no account required):
+### Shoko Server — First-run setup
 
-| Indexer | Best for |
-|---|---|
-| YTS | Movies — very clean releases |
-| EZTV | TV shows |
-| The Pirate Bay | Broad coverage of everything |
-| 1337x | General — movies, TV, anime |
-| Nyaa | Anime — the standard, essentially required |
-| TokyoTosho | Anime — secondary source, good for niche titles |
+Shoko requires a one-time setup wizard before it can manage your library. Sonarr still handles searching and downloading — Shoko takes over AniDB identification, metadata, and organisation of `/media/anime`.
 
-#### **Private trackers** (account required, some invite-only):
-
-| Tracker | Best for |
-|---|---|
-| BTN (BroadcasTheNet) | TV shows — invite only, considered the best TV tracker |
-| PTP (PassThePopcorn) | Movies — invite only, extremely high quality |
-| AnimeBytes | Anime — better than Nyaa for older or niche titles, invite only |
-| MAM (MyAnonamouse) | Books and audiobooks |
-
-### qBittorrent — Set a permanent password
-
-On first startup, qBittorrent generates a temporary password that changes on every restart. After the wiring script runs:
-
-1. Open qBittorrent at `http://<server-ip>:8081`
-2. Go to **Tools > Options > Web UI** and set a permanent password
-3. Add it to `.env`: `QBIT_PASS=yourpassword`
+1. Open Shoko at `http://<server-ip>:8111`
+2. Complete the setup wizard — create an admin account and connect to AniDB
+3. Go to **Import Folders** and add `/media/anime` as an import folder
+4. Trigger an initial scan to let Shoko identify your existing anime library
 
 ### Bazarr — Subtitle provider setup
 
@@ -184,6 +170,13 @@ Before downloading anything, verify the full pipeline is correctly wired. Work t
 - Confirm a language profile is assigned under **Settings > Languages** with defaults set for both Series and Movies
 - Confirm your library is populated under **Movies** and **Series**
 
+### Shoko Server
+
+- Open the web UI and confirm the setup wizard is complete
+- Confirm `/media/anime` is listed under **Import Folders**
+- Confirm AniDB connection is active under **Settings > AniDB**
+- Trigger a manual scan and confirm anime titles are being identified
+
 ### End-to-End Test
 
 Run through this once to confirm the full pipeline:
@@ -214,7 +207,8 @@ Paths below reflect the defaults in `.env.example`. They can be changed to any l
 ├── radarr/config/
 ├── prowlarr/config/
 ├── qbittorrent/config/
-└── bazarr/config/
+├── bazarr/config/
+└── shoko/config/
 ```
 
 ---
