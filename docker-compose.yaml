@@ -170,6 +170,37 @@ services:
       - ${BAZARR_PORT}:6767
     networks:
       - media-net
+  
+  
+  # ----------------------------------------------------------------------------
+  #  SHOKO SERVER — Anime library manager
+  #  Access: http://<server-ip>:${SHOKO_PORT}
+  #
+  #  Manages and identifies your anime library using AniDB.
+  #  Reads from the same /media/anime folder Sonarr writes to.
+  #  Sonarr still handles searching and downloading — Shoko
+  #  takes over organisation, metadata, and AniDB matching.
+  #
+  #  On first run, open the web UI and complete the setup wizard.
+  #  Add /media/anime as an import folder and point it at AniDB.
+  # ----------------------------------------------------------------------------
+  shoko:
+    image: ghcr.io/shokoanime/server:latest
+    container_name: shoko
+    restart: unless-stopped
+    depends_on:
+      - sonarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ}
+    volumes:
+      - ${SHOKO_CONFIG}:/home/shoko/.shoko
+      - ${MEDIA_ROOT}/anime:/media/anime
+    ports:
+      - ${SHOKO_PORT}:8111
+    networks:
+      - media-net
 
 
 # ------------------------------------------------------------------------------

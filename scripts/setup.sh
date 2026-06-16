@@ -170,6 +170,7 @@ wait_for "Sonarr"      "http://${SERVER_IP}:${SONARR_PORT}/login"
 wait_for "Radarr"      "http://${SERVER_IP}:${RADARR_PORT}/login"
 wait_for "qBittorrent" "http://${SERVER_IP}:${QBIT_PORT}"
 wait_for "Bazarr"      "http://${SERVER_IP}:${BAZARR_PORT}"
+wait_for "Shoko"       "http://${SERVER_IP}:${SHOKO_PORT}"
 
 # ------------------------------------------------------------------------------
 #  Done
@@ -200,6 +201,7 @@ echo "======================================"
 echo "  Containers Ready"
 echo "======================================"
 echo ""
+echo "  Shoko:       http://${SERVER_IP}:${SHOKO_PORT}"
 echo "  Bazarr:      http://${SERVER_IP}:${BAZARR_PORT}"
 echo "  Sonarr:      http://${SERVER_IP}:${SONARR_PORT}"
 echo "  Radarr:      http://${SERVER_IP}:${RADARR_PORT}"
