@@ -1,6 +1,7 @@
 // src/routes/layouts/AppLayout.tsx
 import { Navigate, Outlet } from 'react-router'
 import { useAuth } from '@/context/AuthContext'
+import NavBar from '@/components/NavBar'
 
 export default function AppLayout() {
   const { isAuthenticated, loading } = useAuth()
@@ -13,7 +14,7 @@ export default function AppLayout() {
 
   return (
     <div>
-      {/* TODO: Shared nav/sidebar goes here */}
+      <NavBar />
       <Outlet />
     </div>
   )
