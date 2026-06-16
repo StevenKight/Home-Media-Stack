@@ -132,9 +132,6 @@ make_dir "${SONARR_CONFIG}"
 make_dir "${RADARR_CONFIG}"
 make_dir "${PROWLARR_CONFIG}"
 make_dir "${QBIT_CONFIG}"
-make_dir "${JELLYFIN_CONFIG}"
-make_dir "${JELLYFIN_CACHE}"
-make_dir "${JELLYSEERR_CONFIG}"
 make_dir "${BAZARR_CONFIG}"
 
 # ------------------------------------------------------------------------------
@@ -151,9 +148,6 @@ chown -R "${PUID}:${PGID}" \
     "${RADARR_CONFIG}" \
     "${PROWLARR_CONFIG}" \
     "${QBIT_CONFIG}" \
-    "${JELLYFIN_CONFIG}" \
-    "${JELLYFIN_CACHE}" \
-    "${JELLYSEERR_CONFIG}" \
     "${BAZARR_CONFIG}"
 
 success "Ownership set"
@@ -175,18 +169,7 @@ wait_for "Prowlarr"    "http://${SERVER_IP}:${PROWLARR_PORT}/login"
 wait_for "Sonarr"      "http://${SERVER_IP}:${SONARR_PORT}/login"
 wait_for "Radarr"      "http://${SERVER_IP}:${RADARR_PORT}/login"
 wait_for "qBittorrent" "http://${SERVER_IP}:${QBIT_PORT}"
-wait_for "Jellyfin"    "http://${SERVER_IP}:${JELLYFIN_PORT}/health"
 wait_for "Bazarr"      "http://${SERVER_IP}:${BAZARR_PORT}"
-
-info "Waiting for Jellyseerr..."
-attempts=0
-max=30
-until docker exec jellyseerr wget -qO- http://localhost:5055/api/v1/status &>/dev/null; do
-    attempts=$((attempts + 1))
-    [ "$attempts" -ge "$max" ] && error "Jellyseerr did not respond. Check: docker logs jellyseerr"
-    sleep 3
-done
-success "Jellyseerr is ready"
 
 # ------------------------------------------------------------------------------
 #  Done
@@ -211,17 +194,12 @@ echo "    ${SONARR_CONFIG}"
 echo "    ${RADARR_CONFIG}"
 echo "    ${PROWLARR_CONFIG}"
 echo "    ${QBIT_CONFIG}"
-echo "    ${JELLYFIN_CONFIG}"
-echo "    ${JELLYFIN_CACHE}"
-echo "    ${JELLYSEERR_CONFIG}"
 echo "    ${BAZARR_CONFIG}"
 echo ""
 echo "======================================"
 echo "  Containers Ready"
 echo "======================================"
 echo ""
-echo "  Jellyfin:    http://${SERVER_IP}:${JELLYFIN_PORT}"
-echo "  Jellyseerr:  http://${SERVER_IP}:${JELLYSEERR_PORT}"
 echo "  Bazarr:      http://${SERVER_IP}:${BAZARR_PORT}"
 echo "  Sonarr:      http://${SERVER_IP}:${SONARR_PORT}"
 echo "  Radarr:      http://${SERVER_IP}:${RADARR_PORT}"
@@ -232,21 +210,7 @@ echo "======================================"
 echo "  Next Steps"
 echo "======================================"
 echo ""
-echo "    1. Complete Jellyfin first-run setup wizard:"
-echo "       http://localhost:${JELLYFIN_PORT}"
-echo "       Create your admin account, add libraries,"
-echo "       and note the password you set."
-echo ""
-echo "    2. Add your Jellyfin password to .env:"
-echo "       JELLYFIN_PASS=yourpassword"
-echo ""
-echo "    3. Complete Jellyseerr setup wizard:"
-echo "       http://localhost:${JELLYSEERR_PORT}/setup"
-echo "       Sign in with your Jellyfin credentials."
-echo "       You can skip the Sonarr/Radarr steps —"
-echo "       config.sh will handle those automatically."
-echo ""
-echo "    4. ./config.sh"
+echo "    1. ./config.sh"
 echo ""
 echo "======================================"
 echo ""

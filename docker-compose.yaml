@@ -1,21 +1,19 @@
 ---
 # ==============================================================================
 #  Media Server Stack
-#  Services: Prowlarr, Sonarr, Radarr, qBittorrent, Jellyfin, Jellyseerr
+#  Services: Prowlarr, Sonarr, Radarr, qBittorrent
 #
 #  All configuration is driven by the .env file in this directory.
 #  Copy .env.example to .env, fill in your values, then run:
 #
-#    1. ./setup.1.sh          — create directories
-#    2. docker compose up -d  — start all containers
-#    3. Complete Jellyfin first-run setup in the browser
-#    4. Add JELLYFIN_PASS to your .env
-#    5. ./setup.2.sh          — wire all services together
+#    1. ./setup.sh          — create directories
+#    2. ./config.sh         — wire all services together
+#    3. Add indexers in Prowlarr
+#    4. Add subtitle providers in Bazarr
 #
 #  Flow:
 #    Prowlarr (find it) → Sonarr/Radarr (decide + queue it)
 #      → qBittorrent (download it) → Sonarr/Radarr (organise it)
-#      → Jellyfin (stream it) ← Jellyseerr (request it)
 #
 # ==============================================================================
 
@@ -137,74 +135,6 @@ services:
       - ${QBIT_PORT}:${QBIT_PORT}
       - ${QBIT_TORRENT_PORT}:${QBIT_TORRENT_PORT}
       - ${QBIT_TORRENT_PORT}:${QBIT_TORRENT_PORT}/udp
-    networks:
-      - media-net
-
-
-  # ----------------------------------------------------------------------------
-  #  JELLYFIN — Media server
-  #  Access: http://<server-ip>:${JELLYFIN_PORT}
-  #
-  #  Streams movies, TV shows, anime, music, and photos to
-  #  any device on your local network. No account required,
-  #  no telemetry, fully local.
-  #
-  #  Complete the first-run setup wizard in your browser before
-  #  running setup.2.sh. Add your JELLYFIN_PASS to .env first.
-  #
-  #  Hardware transcoding: the devices section enables Intel
-  #  iGPU transcoding. Remove it if your CPU has no iGPU
-  #  (e.g. Ryzen 5 5500).
-  # ----------------------------------------------------------------------------
-  jellyfin:
-    image: jellyfin/jellyfin:latest
-    container_name: jellyfin
-    restart: unless-stopped
-    environment:
-      - PUID=${PUID}
-      - PGID=${PGID}
-      - TZ=${TZ}
-    volumes:
-      - ${JELLYFIN_CONFIG}:/config
-      - ${JELLYFIN_CACHE}:/cache
-      - ${MEDIA_ROOT}/movies:/media/movies
-      - ${MEDIA_ROOT}/tvshows:/media/tvshows
-      - ${MEDIA_ROOT}/anime:/media/anime
-      - ${MEDIA_ROOT}/music:/media/music
-      - ${MEDIA_ROOT}/photos:/media/photos
-    ports:
-      - ${JELLYFIN_PORT}:8096
-    # Remove the devices section below if your CPU has no iGPU
-    # devices:
-    #   - /dev/dri:/dev/dri
-    networks:
-      - media-net
-
-
-  # ----------------------------------------------------------------------------
-  #  JELLYSEERR — Discovery and request manager
-  #  Access: http://<server-ip>:${JELLYSEERR_PORT}
-  #
-  #  Users browse and request content here. Requests flow
-  #  automatically into Sonarr or Radarr without users needing
-  #  access to any other service.
-  #
-  #  setup.2.sh connects Jellyseerr to Jellyfin, Sonarr, and
-  #  Radarr automatically after first-run setup is complete.
-  # ----------------------------------------------------------------------------
-  jellyseerr:
-    image: fallenbagel/jellyseerr:latest
-    container_name: jellyseerr
-    restart: unless-stopped
-    depends_on:
-      - sonarr
-      - radarr
-    environment:
-      - TZ=${TZ}
-    volumes:
-      - ${JELLYSEERR_CONFIG}:/app/config
-    ports:
-      - ${JELLYSEERR_PORT}:5055
     networks:
       - media-net
 

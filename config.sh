@@ -5,9 +5,6 @@
 #
 #  Prerequisites before running this script:
 #    1. All containers must be running (docker compose up -d)
-#    2. Jellyfin first-run setup must be complete in the browser:
-#       http://<server-ip>:JELLYFIN_PORT
-#    3. JELLYFIN_USER and JELLYFIN_PASS must be set in .env
 #
 #  Usage:
 #    chmod +x config.sh
@@ -91,34 +88,6 @@ echo "  Media Server Stack — Wiring"
 echo "======================================"
 echo ""
 
-for cmd in curl jq; do
-    command -v "$cmd" &>/dev/null || error "$cmd is required. Run: sudo apt install -y curl jq"
-done
-
-if [ -z "${JELLYFIN_PASS:-}" ]; then
-    error "JELLYFIN_PASS is not set in .env. Complete the Jellyfin setup wizard first:
-    http://localhost:${JELLYFIN_PORT}
-  Then add your password to .env and re-run this script."
-fi
-
-# Verify Jellyseerr wizard has been completed by checking if its
-# API returns a valid status rather than redirecting to /setup
-echo ""
-info "Checking Jellyseerr is initialised..."
-JSEERR_STATUS=$(docker exec jellyseerr wget -qO- \
-    http://localhost:5055/api/v1/status \
-    2>/dev/null || echo "")
-
-if echo "$JSEERR_STATUS" | jq -e '.version' &>/dev/null; then
-    success "Jellyseerr is initialised"
-else
-    error "Jellyseerr setup wizard has not been completed.
-  Open http://localhost:${JELLYSEERR_PORT}/setup in your browser,
-  sign in with your Jellyfin credentials, then re-run this script.
-  You can skip the Sonarr/Radarr steps in the wizard —
-  this script will handle those automatically."
-fi
-
 # ------------------------------------------------------------------------------
 #  Wait for all services
 # ------------------------------------------------------------------------------
@@ -129,18 +98,7 @@ wait_for "Prowlarr"    "http://${SERVER_IP}:${PROWLARR_PORT}/login"
 wait_for "Sonarr"      "http://${SERVER_IP}:${SONARR_PORT}/login"
 wait_for "Radarr"      "http://${SERVER_IP}:${RADARR_PORT}/login"
 wait_for "qBittorrent" "http://${SERVER_IP}:${QBIT_PORT}"
-wait_for "Jellyfin"    "http://${SERVER_IP}:${JELLYFIN_PORT}/health"
 wait_for "Bazarr"      "http://${SERVER_IP}:${BAZARR_PORT}"
-
-info "Waiting for Jellyseerr..."
-attempts=0
-max=30
-until docker exec jellyseerr wget -qO- http://localhost:5055/api/v1/status &>/dev/null; do
-    attempts=$((attempts + 1))
-    [ "$attempts" -ge "$max" ] && error "Jellyseerr did not respond. Check: docker logs jellyseerr"
-    sleep 3
-done
-success "Jellyseerr is ready"
 
 # ------------------------------------------------------------------------------
 #  Resolve qBittorrent password
@@ -149,31 +107,21 @@ success "Jellyseerr is ready"
 echo ""
 info "Resolving qBittorrent password..."
 
-if [ -n "${QBIT_PASS:-}" ]; then
-    info "Using password from .env"
-else
-    info "QBIT_PASS not set — reading temporary password from container logs..."
+info "QBIT_PASS not set — reading temporary password from container logs..."
 
-    attempts=0
-    max=20
-    QBIT_PASS=""
-    until [ -n "$QBIT_PASS" ]; do
-        QBIT_PASS=$(docker logs qbittorrent 2>&1 \
-            | grep -oP '(?<=temporary password is provided for this session: )\S+' \
-            | tail -1 || true)
-        attempts=$((attempts + 1))
-        [ "$attempts" -ge "$max" ] && error "Could not find temporary password in qBittorrent logs."
-        [ -z "$QBIT_PASS" ] && sleep 3
-    done
+attempts=0
+max=20
+QBIT_PASS=""
+until [ -n "$QBIT_PASS" ]; do
+    QBIT_PASS=$(docker logs qbittorrent 2>&1 \
+        | grep -oP '(?<=temporary password is provided for this session: )\S+' \
+        | tail -1 || true)
+    attempts=$((attempts + 1))
+    [ "$attempts" -ge "$max" ] && error "Could not find temporary password in qBittorrent logs."
+    [ -z "$QBIT_PASS" ] && sleep 3
+done
 
-    success "Temporary password found: ${QBIT_PASS}"
-    echo ""
-    warn "This password changes on every restart until you set a permanent one."
-    warn "After this script finishes, set a permanent password in qBittorrent:"
-    warn "  http://${SERVER_IP}:${QBIT_PORT} > Tools > Options > Web UI > Password"
-    warn "Then add it to .env:  QBIT_PASS=yourpassword"
-    echo ""
-fi
+success "Temporary password found: ${QBIT_PASS}"
 
 QB_STATUS=$(curl -sf \
     -o /dev/null \
@@ -209,43 +157,6 @@ success "Radarr:   ${RADARR_KEY:0:8}..."
 
 PROWLARR_KEY=$(read_api_key "${PROWLARR_CONFIG}/config.xml")
 success "Prowlarr: ${PROWLARR_KEY:0:8}..."
-
-# ------------------------------------------------------------------------------
-#  Authenticate with Jellyfin and get API key
-# ------------------------------------------------------------------------------
-
-echo ""
-info "Authenticating with Jellyfin..."
-
-JELLYFIN_AUTH=$(curl -sf -X POST \
-    "http://${SERVER_IP}:${JELLYFIN_PORT}/Users/AuthenticateByName" \
-    -H "Content-Type: application/json" \
-    -H 'X-Emby-Authorization: MediaBrowser Client="setup", Device="setup", DeviceId="setup", Version="1.0.0"' \
-    -d "{\"Username\": \"${JELLYFIN_USER}\", \"Pw\": \"${JELLYFIN_PASS}\"}" \
-    2>/dev/null || echo "")
-
-if [ -z "$JELLYFIN_AUTH" ]; then
-    error "Could not authenticate with Jellyfin. Check JELLYFIN_USER and JELLYFIN_PASS in .env"
-fi
-
-JELLYFIN_TOKEN=$(echo "$JELLYFIN_AUTH" | jq -r '.AccessToken')
-
-if [ -z "$JELLYFIN_TOKEN" ] || [ "$JELLYFIN_TOKEN" = "null" ]; then
-    error "Could not retrieve Jellyfin access token. Check credentials in .env"
-fi
-
-success "Jellyfin authenticated"
-
-# Create a named API key for Jellyseerr
-JELLYFIN_API_KEY=$(curl -sf -X POST \
-    "http://${SERVER_IP}:${JELLYFIN_PORT}/Auth/Keys" \
-    -H "Authorization: MediaBrowser Token=\"${JELLYFIN_TOKEN}\"" \
-    -H "Content-Type: application/json" \
-    2>/dev/null | jq -r '.Key // empty' || echo "")
-
-# Fall back to session token if key endpoint unavailable
-JELLYFIN_API_KEY="${JELLYFIN_API_KEY:-$JELLYFIN_TOKEN}"
-success "Jellyfin API key obtained: ${JELLYFIN_API_KEY:0:8}..."
 
 # ------------------------------------------------------------------------------
 #  Connect qBittorrent to Sonarr
@@ -417,94 +328,39 @@ fi
 
 # ------------------------------------------------------------------------------
 #  Connect Bazarr to Sonarr and Radarr
+#  Bazarr has no settings API — we patch its config.yaml directly and
+#  restart the container so it boots with the correct connection details.
 # ------------------------------------------------------------------------------
 
 echo ""
-info "Connecting Bazarr to Sonarr..."
+info "Configuring Bazarr to Sonarr and Radarr connections..."
 
-BAZARR_SONARR=$(curl -sf -X PUT \
-    "http://${SERVER_IP}:${BAZARR_PORT}/api/sonarr" \
-    -H "X-API-KEY: ${BAZARR_API_KEY:-}" \
-    -H "Content-Type: application/json" \
-    -d "{
-        \"ip\": \"sonarr\",
-        \"port\": ${SONARR_PORT},
-        \"apikey\": \"${SONARR_KEY}\",
-        \"ssl\": false,
-        \"base_url\": \"/\"
-    }" 2>/dev/null || echo "")
+BAZARR_YAML="${BAZARR_CONFIG}/config/config.yaml"
 
-success "Bazarr pointed at Sonarr — verify connection in Bazarr UI"
+[ -f "$BAZARR_YAML" ] || error "Bazarr config not found at ${BAZARR_YAML}. Is the bazarr container running?"
 
-echo ""
-info "Connecting Bazarr to Radarr..."
+sed -i \
+    -e 's/^  use_sonarr:.*/  use_sonarr: true/' \
+    -e 's/^  use_radarr:.*/  use_radarr: true/' \
+    "$BAZARR_YAML"
 
-BAZARR_RADARR=$(curl -sf -X PUT \
-    "http://${SERVER_IP}:${BAZARR_PORT}/api/radarr" \
-    -H "X-API-KEY: ${BAZARR_API_KEY:-}" \
-    -H "Content-Type: application/json" \
-    -d "{
-        \"ip\": \"radarr\",
-        \"port\": ${RADARR_PORT},
-        \"apikey\": \"${RADARR_KEY}\",
-        \"ssl\": false,
-        \"base_url\": \"/\"
-    }" 2>/dev/null || echo "")
+sed -i "/^sonarr:/,/^[a-z]/{
+    s|^  ip:.*|  ip: sonarr|
+    s|^  apikey:.*|  apikey: ${SONARR_KEY}|
+    s|^  port:.*|  port: ${SONARR_PORT}|
+    s|^  base_url:.*|  base_url: ''|
+}" "$BAZARR_YAML"
 
-success "Bazarr pointed at Radarr — verify connection in Bazarr UI"
+sed -i "/^radarr:/,/^[a-z]/{
+    s|^  ip:.*|  ip: radarr|
+    s|^  apikey:.*|  apikey: ${RADARR_KEY}|
+    s|^  port:.*|  port: ${RADARR_PORT}|
+    s|^  base_url:.*|  base_url: ''|
+}" "$BAZARR_YAML"
 
-# ------------------------------------------------------------------------------
-#  Connect Jellyseerr to Sonarr
-# ------------------------------------------------------------------------------
-
-echo ""
-info "Connecting Jellyseerr to Sonarr..."
-
-# Retrieve Jellyseerr API key for Sonarr/Radarr connections
-JELLYSEERR_KEY=$(docker exec jellyseerr wget -qO- \
-    http://localhost:5055/api/v1/settings/main \
-    2>/dev/null | jq -r '.apiKey // empty' || echo "")
-
-if [ -n "$JELLYSEERR_KEY" ]; then
-    RESULT=$(docker exec jellyseerr wget -qO- \
-        --post-data="{\"name\": \"Sonarr\", \"hostname\": \"sonarr\", \"port\": ${SONARR_PORT}, \"apiKey\": \"${SONARR_KEY}\", \"useSsl\": false, \"activeProfileId\": 1, \"activeDirectory\": \"/media/tvshows\", \"activeAnimeProfileId\": 1, \"activeAnimeDirectory\": \"/media/anime\", \"isDefault\": true, \"enableSeasonFolders\": true}" \
-        --header="Content-Type: application/json" \
-        --header="X-Api-Key: ${JELLYSEERR_KEY}" \
-        http://localhost:5055/api/v1/settings/sonarr \
-        2>/dev/null || echo "")
-
-    if echo "$RESULT" | jq -e '.id' &>/dev/null; then
-        success "Jellyseerr connected to Sonarr"
-    else
-        warn "Jellyseerr may already be connected to Sonarr — skipping"
-    fi
-else
-    warn "Could not retrieve Jellyseerr API key — connect Sonarr manually in Jellyseerr settings"
-fi
-
-# ------------------------------------------------------------------------------
-#  Connect Jellyseerr to Radarr
-# ------------------------------------------------------------------------------
-
-echo ""
-info "Connecting Jellyseerr to Radarr..."
-
-if [ -n "$JELLYSEERR_KEY" ]; then
-    RESULT=$(docker exec jellyseerr wget -qO- \
-        --post-data="{\"name\": \"Radarr\", \"hostname\": \"radarr\", \"port\": ${RADARR_PORT}, \"apiKey\": \"${RADARR_KEY}\", \"useSsl\": false, \"activeProfileId\": 1, \"activeDirectory\": \"/media/movies\", \"isDefault\": true}" \
-        --header="Content-Type: application/json" \
-        --header="X-Api-Key: ${JELLYSEERR_KEY}" \
-        http://localhost:5055/api/v1/settings/radarr \
-        2>/dev/null || echo "")
-
-    if echo "$RESULT" | jq -e '.id' &>/dev/null; then
-        success "Jellyseerr connected to Radarr"
-    else
-        warn "Jellyseerr may already be connected to Radarr — skipping"
-    fi
-else
-    warn "Could not retrieve Jellyseerr API key — connect Radarr manually in Jellyseerr settings"
-fi
+docker restart bazarr > /dev/null
+wait_for "Bazarr" "http://${SERVER_IP}:${BAZARR_PORT}"
+success "Bazarr connected to Sonarr and Radarr"
 
 # ------------------------------------------------------------------------------
 #  Done
@@ -517,7 +373,7 @@ echo "======================================"
 echo ""
 echo "  Remaining manual steps:"
 echo ""
-echo "  1. Add indexers in Prowlarr — they sync to Sonarr"
+echo "  1. Add indexers in Prowlarr"
 echo "     and Radarr automatically:"
 echo "     http://${SERVER_IP}:${PROWLARR_PORT} > Indexers > Add Indexer"
 echo ""
@@ -527,14 +383,5 @@ echo "     Settings > Providers > Add Provider"
 echo "     Recommended: OpenSubtitles (free account required)"
 echo "     For anime: also add Animetosho"
 echo ""
-echo "  3. Set Jellyfin playback preferences (for anime):"
-echo "     User Settings > Playback"
-echo "     Audio: Japanese | Subtitles: English | Mode: Always"
-echo ""
-if [ -z "${QBIT_PASS:-}" ]; then
-    echo "  3. Set a permanent qBittorrent password then add"
-    echo "     QBIT_PASS=yourpassword to your .env file."
-    echo ""
-fi
 echo "======================================"
 echo ""

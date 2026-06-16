@@ -1,6 +1,6 @@
 # Home Media Server Stack
 
-A self-hosted home media server built on Ubuntu Server 24.04 LTS and Docker. Streams movies, TV shows, anime, music, and photos to any device on your local network with no cloud accounts, no telemetry, and no data leaving your home.
+A self-hosted home media server built on Ubuntu Server 24.04 LTS and Docker. Automatically finds, downloads, organises, and subtitles movies, TV shows, and anime — fully local, no cloud accounts, no telemetry.
 
 Designed for local network use only. No port forwarding or external access required.
 
@@ -10,8 +10,6 @@ Designed for local network use only. No port forwarding or external access requi
 
 | Service | Purpose | Default Port |
 |---|---|---|
-| [Jellyfin](https://jellyfin.org) | Media server — stream everything | `:8096` |
-| [Jellyseerr](https://github.com/Fallenbagel/jellyseerr) | Discovery, recommendations, and requests | `:5055` |
 | [Sonarr](https://sonarr.tv) | TV show and anime library manager | `:8989` |
 | [Radarr](https://radarr.video) | Movie library manager | `:7878` |
 | [Prowlarr](https://github.com/Prowlarr/Prowlarr) | Indexer manager — syncs sources to Sonarr and Radarr | `:9696` |
@@ -28,11 +26,9 @@ No service in this stack sends personal data, usage habits, or identifiable info
 
 | Service | Telemetry | External Calls | Notes |
 |---|---|---|---|
-| Jellyfin | None | None | Disable usage stats on first launch |
 | Sonarr / Radarr | None | TVDB / TMDB title lookups | IP + title name only |
 | Prowlarr | None | Indexer sites for search results | IP + search terms only |
 | qBittorrent | None | Torrent peers and trackers | Standard torrent traffic |
-| Jellyseerr | None | TMDB for discovery browsing | IP + search terms only |
 | Bazarr | None | OpenSubtitles / Animetosho | IP + title name only |
 
 ---
@@ -83,22 +79,7 @@ sudo ./setup.sh
 
 This creates all required directories with correct ownership, starts all containers, and waits until every service is ready. It prints URLs and next steps when complete.
 
-### 4. Complete Jellyfin first-run setup
-
-Open Jellyfin in your browser at `http://<server-ip>:8096` and follow the setup wizard. Create your admin account and add your media libraries. Note the password you set.
-
-Then add your credentials to `.env`:
-
-```
-JELLYFIN_USER=yourusername
-JELLYFIN_PASS=yourpassword
-```
-
-### 5. Complete Jellyseerr first-run setup
-
-Open Jellyseerr at `http://<server-ip>:5055/setup` and sign in with your Jellyfin credentials. You can skip the Sonarr and Radarr steps — the wiring script handles those automatically.
-
-### 6. Run the wiring script
+### 4. Run the wiring script
 
 ```bash
 chmod +x config.sh
@@ -110,9 +91,9 @@ This authenticates with every service and wires them together automatically:
 - Connects qBittorrent to Sonarr and Radarr as the download client
 - Registers Prowlarr with Sonarr and Radarr for indexer syncing
 - Configures root media folders in Sonarr and Radarr
-- Links Jellyseerr to Sonarr, Radarr, and Jellyfin
+- Connects Bazarr to Sonarr and Radarr
 
-### 7. Verify everything is running
+### 5. Verify everything is running
 
 ```bash
 docker compose ps
@@ -121,7 +102,7 @@ docker compose ps
 All services should show `running`. To view logs for a specific service:
 
 ```bash
-docker compose logs jellyfin
+docker compose logs -f sonarr
 ```
 
 ---
@@ -172,15 +153,11 @@ The wiring script connects Bazarr to Sonarr and Radarr, but subtitle providers r
 4. Go to **Movies** and **Series**, select all existing content, and bulk edit to assign the English profile — this covers content added before the profile was set
 5. Go to **System > Tasks** and run **Search for Missing Subtitles** to trigger an immediate download across your library
 
-### Jellyseerr — Requesting content
-
-Users browse and request content through Jellyseerr. Requests flow automatically into Sonarr or Radarr without users needing access to any other service.
-
 ---
 
 ## Pre-Download Checklist
 
-Before requesting or downloading anything, verify the full pipeline is correctly wired. Work through this once after `config.sh` completes.
+Before downloading anything, verify the full pipeline is correctly wired. Work through this once after `config.sh` completes.
 
 ### Prowlarr
 
@@ -213,31 +190,14 @@ Before requesting or downloading anything, verify the full pipeline is correctly
 - Confirm a language profile is assigned under **Settings > Languages** with defaults set for both Series and Movies
 - Confirm your library is populated under **Movies** and **Series**
 
-### Jellyfin
-
-- Confirm all libraries exist and point to the correct folders under **Dashboard > Libraries**
-- Run a scan on each library to pick up any existing content
-- Go to your profile **Settings > Playback** and set:
-  - Preferred audio language: Japanese
-  - Preferred subtitle language: English
-  - Subtitle mode: Always
-
-### Jellyseerr
-
-- Go to **Settings > Services** and confirm both Sonarr and Radarr show green
-- Go to **Settings > Users** and configure request permissions for household members
-
 ### End-to-End Test
 
-Run through this once before giving others access:
+Run through this once to confirm the full pipeline:
 
-1. Request a movie in Jellyseerr
-2. Confirm it appears in Radarr as Monitored
-3. Confirm a download starts in qBittorrent within a few minutes
-4. Confirm the file is imported in Radarr once downloaded
-5. Confirm the movie appears in Jellyfin
-6. Confirm subtitles were downloaded in Bazarr
-7. Play the movie in Jellyfin and confirm subtitles appear
+1. Add a movie in Radarr and trigger a search
+2. Confirm a download starts in qBittorrent within a few minutes
+3. Confirm the file is imported in Radarr once downloaded
+4. Confirm subtitles were downloaded in Bazarr
 
 If every step passes the full pipeline is working correctly.
 
@@ -250,21 +210,17 @@ Paths below reflect the defaults in `.env.example`. They can be changed to any l
 ```
 /srv/
 ├── media/
-│   ├── movies/          # Radarr output → Jellyfin source
-│   ├── tvshows/         # Sonarr output → Jellyfin source
-│   ├── anime/           # Sonarr output → Jellyfin source
-│   ├── music/           # Jellyfin music library
-│   └── photos/          # Jellyfin photo library
+│   ├── movies/          # Radarr output
+│   ├── tvshows/         # Sonarr output
+│   ├── anime/           # Sonarr output
+│   ├── music/
+│   └── photos/
 ├── downloads/           # qBittorrent download folder
-├── jellyfin/
-│   ├── config/          # Jellyfin config and database
-│   └── cache/           # Transcoding cache
 ├── sonarr/config/
 ├── radarr/config/
 ├── prowlarr/config/
 ├── qbittorrent/config/
-├── bazarr/config/
-└── jellyseerr/config/
+└── bazarr/config/
 ```
 
 ---
@@ -278,17 +234,6 @@ This stack runs well on modest hardware. Reference build:
 - **OS Drive:** Any SSD (NVMe recommended)
 - **Media Storage:** Any HDD or SSD with sufficient capacity
 
-The Ryzen 5 5500 has no integrated GPU. The `devices: /dev/dri` lines in the Jellyfin section of `docker-compose.yaml` are commented out by default for this reason. The 6-core processor handles software transcoding adequately, and most modern clients on a local network will direct play without triggering transcoding at all.
-
-For machines with an Intel integrated GPU, enable hardware transcoding after starting the stack:
-
-```bash
-sudo apt install -y intel-media-va-driver-non-free
-sudo usermod -aG render $USER
-```
-
-Then in Jellyfin go to **Dashboard > Playback** and enable Intel QSV. Uncomment the `devices` section in `docker-compose.yaml` and restart the Jellyfin container.
-
 ---
 
 ## Useful Commands
@@ -301,7 +246,7 @@ docker compose up -d
 docker compose down
 
 # Restart a single service
-docker compose restart jellyfin
+docker compose restart sonarr
 
 # View live logs for a service
 docker compose logs -f sonarr
