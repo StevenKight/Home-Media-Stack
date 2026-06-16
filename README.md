@@ -70,30 +70,24 @@ Open `.env` and fill in:
 
 All other values (ports, config paths) have sensible defaults and can be left as-is unless you have conflicts.
 
-### 3. Run the setup script
+### 3. Deploy
 
 ```bash
-chmod +x setup.sh
-sudo ./setup.sh
+chmod +x deploy.sh
+sudo ./deploy.sh
 ```
 
-This creates all required directories with correct ownership, starts all containers, and waits until every service is ready. It prints URLs and next steps when complete.
+This runs the full deployment in one shot:
 
-### 4. Run the wiring script
+- Creates all required directories with correct ownership
+- Starts all containers and waits until every service is ready
+- Authenticates with every service and wires them together:
+  - Connects qBittorrent to Sonarr and Radarr as the download client
+  - Registers Prowlarr with Sonarr and Radarr for indexer syncing
+  - Configures root media folders in Sonarr and Radarr
+  - Connects Bazarr to Sonarr and Radarr
 
-```bash
-chmod +x config.sh
-./config.sh
-```
-
-This authenticates with every service and wires them together automatically:
-
-- Connects qBittorrent to Sonarr and Radarr as the download client
-- Registers Prowlarr with Sonarr and Radarr for indexer syncing
-- Configures root media folders in Sonarr and Radarr
-- Connects Bazarr to Sonarr and Radarr
-
-### 5. Verify everything is running
+### 4. Verify everything is running
 
 ```bash
 docker compose ps
@@ -157,7 +151,7 @@ The wiring script connects Bazarr to Sonarr and Radarr, but subtitle providers r
 
 ## Pre-Download Checklist
 
-Before downloading anything, verify the full pipeline is correctly wired. Work through this once after `config.sh` completes.
+Before downloading anything, verify the full pipeline is correctly wired. Work through this once after `./deploy.sh` completes.
 
 ### Prowlarr
 

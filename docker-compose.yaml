@@ -6,10 +6,9 @@
 #  All configuration is driven by the .env file in this directory.
 #  Copy .env.example to .env, fill in your values, then run:
 #
-#    1. ./setup.sh          — create directories
-#    2. ./config.sh         — wire all services together
-#    3. Add indexers in Prowlarr
-#    4. Add subtitle providers in Bazarr
+#    1. ./deploy.sh         — create directories, start containers, wire services
+#    2. Add indexers in Prowlarr
+#    3. Add subtitle providers in Bazarr
 #
 #  Flow:
 #    Prowlarr (find it) → Sonarr/Radarr (decide + queue it)
