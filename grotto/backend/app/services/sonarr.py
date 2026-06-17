@@ -58,6 +58,25 @@ class SeriesSearchResult:
 
 
 @dataclass
+class DownloadStatus:
+    """Current Sonarr queue state for a series with an active or recent download."""
+
+    status: str
+    tracked_download_state: str | None
+    tracked_download_status: str | None
+    title: str | None
+    size: float
+    size_remaining: float | None
+    time_remaining: str | None
+    estimated_completion: str | None
+    protocol: str | None
+    download_client: str | None
+    indexer: str | None
+    error_message: str | None
+    raw: dict[str, Any]
+
+
+@dataclass
 class SeriesResult:
     """A series that exists in the Sonarr library."""
 
@@ -73,6 +92,7 @@ class SeriesResult:
     genres: list[str]
     runtime: int | None
     rating: float | None
+    download_status: DownloadStatus | None
     raw: dict[str, Any]
 
 
@@ -132,9 +152,10 @@ class SonarrClient:
         return [self._to_search_result(item) for item in data]
 
     def get_library_series(self) -> list[SeriesResult]:
-        """Return all series currently in the Sonarr library."""
+        """Return all series currently in the Sonarr library, with their current download status."""
         data = self._request("GET", "/series")
-        return [self._to_series_result(item) for item in data]
+        download_statuses = self._download_status_by_series_id()
+        return [self._to_series_result(item, download_statuses.get(item.get("id", 0))) for item in data]
 
     def find_in_library_by_tvdb_id(self, tvdb_id: int) -> SeriesResult | None:
         """Return the library entry for a given TVDB id, or None if not added yet."""
@@ -142,6 +163,35 @@ class SonarrClient:
             if series.tvdb_id == tvdb_id:
                 return series
         return None
+
+    # ------------------------------------------------------------------
+    # Download status / single item lookup
+    # ------------------------------------------------------------------
+
+    def get_queue(self, series_ids: list[int] | None = None) -> list[dict[str, Any]]:
+        """
+        Return raw Sonarr queue entries (active/recent downloads), optionally
+        filtered to specific series ids.
+        """
+        params: dict[str, Any] = {"pageSize": 250}
+        if series_ids is not None:
+            params["seriesIds"] = series_ids
+        data = self._request("GET", "/queue", params=params)
+        return data.get("records") or []
+
+    def _download_status_by_series_id(self, series_ids: list[int] | None = None) -> dict[int, DownloadStatus]:
+        statuses: dict[int, DownloadStatus] = {}
+        for item in self.get_queue(series_ids=series_ids):
+            series_id = item.get("seriesId")
+            if series_id is not None:
+                statuses[series_id] = self._to_download_status(item)
+        return statuses
+
+    def get_series_by_id(self, series_id: int) -> SeriesResult:
+        """Return a single library series by its Sonarr id, including its current download status."""
+        data = self._request("GET", f"/series/{series_id}")
+        download_status = self._download_status_by_series_id(series_ids=[series_id]).get(series_id)
+        return self._to_series_result(data, download_status)
 
     # ------------------------------------------------------------------
     # Library configuration helpers
@@ -216,7 +266,7 @@ class SonarrClient:
         }
 
         data = self._request("POST", "/series", json=payload)
-        return self._to_series_result(data)
+        return self._to_series_result(data, None)
 
     # ------------------------------------------------------------------
     # Removing
@@ -334,7 +384,25 @@ class SonarrClient:
         )
 
     @staticmethod
-    def _to_series_result(item: dict[str, Any]) -> SeriesResult:
+    def _to_download_status(item: dict[str, Any]) -> DownloadStatus:
+        return DownloadStatus(
+            status=item.get("status", "unknown"),
+            tracked_download_state=item.get("trackedDownloadState"),
+            tracked_download_status=item.get("trackedDownloadStatus"),
+            title=item.get("title"),
+            size=item.get("size", 0.0),
+            size_remaining=item.get("sizeleft"),
+            time_remaining=item.get("timeleft"),
+            estimated_completion=item.get("estimatedCompletionTime"),
+            protocol=item.get("protocol"),
+            download_client=item.get("downloadClient"),
+            indexer=item.get("indexer"),
+            error_message=item.get("errorMessage"),
+            raw=item,
+        )
+
+    @staticmethod
+    def _to_series_result(item: dict[str, Any], download_status: DownloadStatus | None) -> SeriesResult:
         return SeriesResult(
             id=item.get("id", 0),
             tvdb_id=item.get("tvdbId", 0),
@@ -348,6 +416,7 @@ class SonarrClient:
             genres=item.get("genres") or [],
             runtime=item.get("runtime"),
             rating=SonarrClient._extract_rating(item),
+            download_status=download_status,
             raw=item,
         )
 

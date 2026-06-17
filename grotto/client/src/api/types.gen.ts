@@ -36,6 +36,60 @@ export type AddMediaRequest = {
 };
 
 /**
+ * DownloadStatusResponse
+ */
+export type DownloadStatusResponse = {
+    /**
+     * Status
+     */
+    status: string;
+    /**
+     * Tracked Download State
+     */
+    tracked_download_state: string | null;
+    /**
+     * Tracked Download Status
+     */
+    tracked_download_status: string | null;
+    /**
+     * Title
+     */
+    title: string | null;
+    /**
+     * Size
+     */
+    size: number;
+    /**
+     * Size Remaining
+     */
+    size_remaining: number | null;
+    /**
+     * Time Remaining
+     */
+    time_remaining: string | null;
+    /**
+     * Estimated Completion
+     */
+    estimated_completion: string | null;
+    /**
+     * Protocol
+     */
+    protocol: string | null;
+    /**
+     * Download Client
+     */
+    download_client: string | null;
+    /**
+     * Indexer
+     */
+    indexer: string | null;
+    /**
+     * Error Message
+     */
+    error_message: string | null;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -116,6 +170,7 @@ export type MediaResultResponse = {
      * Studio
      */
     studio: string | null;
+    download_status: DownloadStatusResponse | null;
 };
 
 /**
@@ -484,6 +539,37 @@ export type ListLibraryApiMediaLibraryGetResponses = {
 };
 
 export type ListLibraryApiMediaLibraryGetResponse = ListLibraryApiMediaLibraryGetResponses[keyof ListLibraryApiMediaLibraryGetResponses];
+
+export type GetLibraryItemApiMediaLibraryMediaTypeIdGetData = {
+    body?: never;
+    path: {
+        media_type: MediaType;
+        /**
+         * Id
+         */
+        id: number;
+    };
+    query?: never;
+    url: '/api/media/library/{media_type}/{id}';
+};
+
+export type GetLibraryItemApiMediaLibraryMediaTypeIdGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetLibraryItemApiMediaLibraryMediaTypeIdGetError = GetLibraryItemApiMediaLibraryMediaTypeIdGetErrors[keyof GetLibraryItemApiMediaLibraryMediaTypeIdGetErrors];
+
+export type GetLibraryItemApiMediaLibraryMediaTypeIdGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: MediaResultResponse;
+};
+
+export type GetLibraryItemApiMediaLibraryMediaTypeIdGetResponse = GetLibraryItemApiMediaLibraryMediaTypeIdGetResponses[keyof GetLibraryItemApiMediaLibraryMediaTypeIdGetResponses];
 
 export type AddMediaApiMediaAddPostData = {
     body: AddMediaRequest;

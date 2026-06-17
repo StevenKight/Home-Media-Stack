@@ -57,6 +57,25 @@ class MovieSearchResult:
 
 
 @dataclass
+class DownloadStatus:
+    """Current Radarr queue state for a movie with an active or recent download."""
+
+    status: str
+    tracked_download_state: str | None
+    tracked_download_status: str | None
+    title: str | None
+    size: float
+    size_remaining: float | None
+    time_remaining: str | None
+    estimated_completion: str | None
+    protocol: str | None
+    download_client: str | None
+    indexer: str | None
+    error_message: str | None
+    raw: dict[str, Any]
+
+
+@dataclass
 class MovieResult:
     """A movie that exists in the Radarr library."""
 
@@ -72,6 +91,7 @@ class MovieResult:
     genres: list[str]
     runtime: int | None
     rating: float | None
+    download_status: DownloadStatus | None
     raw: dict[str, Any]
 
 
@@ -131,9 +151,10 @@ class RadarrClient:
         return [self._to_search_result(item) for item in data]
 
     def get_library_movies(self) -> list[MovieResult]:
-        """Return all movies currently in the Radarr library."""
+        """Return all movies currently in the Radarr library, with their current download status."""
         data = self._request("GET", "/movie")
-        return [self._to_movie_result(item) for item in data]
+        download_statuses = self._download_status_by_movie_id()
+        return [self._to_movie_result(item, download_statuses.get(item.get("id", 0))) for item in data]
 
     def find_in_library_by_tmdb_id(self, tmdb_id: int) -> MovieResult | None:
         """Return the library entry for a given TMDB id, or None if not added yet."""
@@ -141,6 +162,35 @@ class RadarrClient:
             if movie.tmdb_id == tmdb_id:
                 return movie
         return None
+
+    # ------------------------------------------------------------------
+    # Download status / single item lookup
+    # ------------------------------------------------------------------
+
+    def get_queue(self, movie_ids: list[int] | None = None) -> list[dict[str, Any]]:
+        """
+        Return raw Radarr queue entries (active/recent downloads), optionally
+        filtered to specific movie ids.
+        """
+        params: dict[str, Any] = {"pageSize": 250}
+        if movie_ids is not None:
+            params["movieIds"] = movie_ids
+        data = self._request("GET", "/queue", params=params)
+        return data.get("records") or []
+
+    def _download_status_by_movie_id(self, movie_ids: list[int] | None = None) -> dict[int, DownloadStatus]:
+        statuses: dict[int, DownloadStatus] = {}
+        for item in self.get_queue(movie_ids=movie_ids):
+            movie_id = item.get("movieId")
+            if movie_id is not None:
+                statuses[movie_id] = self._to_download_status(item)
+        return statuses
+
+    def get_movie_by_id(self, movie_id: int) -> MovieResult:
+        """Return a single library movie by its Radarr id, including its current download status."""
+        data = self._request("GET", f"/movie/{movie_id}")
+        download_status = self._download_status_by_movie_id(movie_ids=[movie_id]).get(movie_id)
+        return self._to_movie_result(data, download_status)
 
     # ------------------------------------------------------------------
     # Library configuration helpers
@@ -216,7 +266,7 @@ class RadarrClient:
         }
 
         data = self._request("POST", "/movie", json=payload)
-        return self._to_movie_result(data)
+        return self._to_movie_result(data, None)
 
     # ------------------------------------------------------------------
     # Removing
@@ -339,7 +389,25 @@ class RadarrClient:
         )
 
     @staticmethod
-    def _to_movie_result(item: dict[str, Any]) -> MovieResult:
+    def _to_download_status(item: dict[str, Any]) -> DownloadStatus:
+        return DownloadStatus(
+            status=item.get("status", "unknown"),
+            tracked_download_state=item.get("trackedDownloadState"),
+            tracked_download_status=item.get("trackedDownloadStatus"),
+            title=item.get("title"),
+            size=item.get("size", 0.0),
+            size_remaining=item.get("sizeleft"),
+            time_remaining=item.get("timeleft"),
+            estimated_completion=item.get("estimatedCompletionTime"),
+            protocol=item.get("protocol"),
+            download_client=item.get("downloadClient"),
+            indexer=item.get("indexer"),
+            error_message=item.get("errorMessage"),
+            raw=item,
+        )
+
+    @staticmethod
+    def _to_movie_result(item: dict[str, Any], download_status: DownloadStatus | None) -> MovieResult:
         return MovieResult(
             id=item.get("id", 0),
             tmdb_id=item.get("tmdbId", 0),
@@ -353,6 +421,7 @@ class RadarrClient:
             genres=item.get("genres") or [],
             runtime=item.get("runtime"),
             rating=RadarrClient._extract_rating(item),
+            download_status=download_status,
             raw=item,
         )
 

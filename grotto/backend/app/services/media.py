@@ -28,7 +28,9 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from app.services.radarr import DownloadStatus as RadarrDownloadStatus
 from app.services.radarr import MovieResult, MovieSearchResult, RadarrClient
+from app.services.sonarr import DownloadStatus as SonarrDownloadStatus
 from app.services.sonarr import SeriesResult, SeriesSearchResult, SonarrClient
 
 
@@ -79,6 +81,7 @@ class MediaResult:
     rating: float | None
     network: str | None  # set for series, None for movies
     studio: str | None  # set for movies, None for series
+    download_status: SonarrDownloadStatus | RadarrDownloadStatus | None
     source: SeriesResult | MovieResult
 
 
@@ -141,6 +144,27 @@ class MediaClient:
 
         library.sort(key=lambda item: item.title.lower())
         return library
+
+    def get_item(self, media_type: MediaType, id: int) -> MediaResult:
+        """
+        Return a single library item by id, including its current download
+        status if Sonarr/Radarr has it queued or downloading.
+
+        Args:
+            media_type: Whether `id` refers to a series (Sonarr) or movie (Radarr).
+            id: The Sonarr or Radarr internal id (as returned by get_library()), not tvdbId/tmdbId.
+
+        Raises:
+            MediaError: If the backend for this media type isn't configured.
+        """
+        if media_type == MediaType.SERIES:
+            if not self.sonarr:
+                raise MediaError("Sonarr is not configured (set SONARR_API_KEY in .env)")
+            return self._wrap_series_result(self.sonarr.get_series_by_id(id))
+
+        if not self.radarr:
+            raise MediaError("Radarr is not configured (set RADARR_API_KEY in .env)")
+        return self._wrap_movie_result(self.radarr.get_movie_by_id(id))
 
     # ------------------------------------------------------------------
     # Adding / downloading
@@ -317,6 +341,7 @@ class MediaClient:
             rating=item.rating,
             network=item.network,
             studio=None,
+            download_status=item.download_status,
             source=item,
         )
 
@@ -337,6 +362,7 @@ class MediaClient:
             rating=item.rating,
             network=None,
             studio=item.studio,
+            download_status=item.download_status,
             source=item,
         )
 

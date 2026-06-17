@@ -28,6 +28,21 @@ class MediaSearchResultResponse(BaseModel):
     studio: str | None
 
 
+class DownloadStatusResponse(BaseModel):
+    status: str
+    tracked_download_state: str | None
+    tracked_download_status: str | None
+    title: str | None
+    size: float
+    size_remaining: float | None
+    time_remaining: str | None
+    estimated_completion: str | None
+    protocol: str | None
+    download_client: str | None
+    indexer: str | None
+    error_message: str | None
+
+
 class MediaResultResponse(BaseModel):
     media_type: MediaType
     id: int
@@ -43,6 +58,7 @@ class MediaResultResponse(BaseModel):
     rating: float | None
     network: str | None
     studio: str | None
+    download_status: DownloadStatusResponse | None
 
 
 class AddMediaRequest(BaseModel):

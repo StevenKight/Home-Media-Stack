@@ -223,6 +223,45 @@ paths:
                 title: Response List Library Api Media Library Get
       security:
       - OAuth2PasswordBearer: []
+  /api/media/library/{media_type}/{id}:
+    get:
+      tags:
+      - media
+      summary: Get Library Item
+      description: "Return the details of a single library item, including its current\n\
+        download status if Sonarr/Radarr has it queued or downloading.\n\nArgs:\n\
+        \    media_type: Whether `id` refers to a series (Sonarr) or movie (Radarr).\n\
+        \    id: The Sonarr or Radarr internal id, as returned by /media/library.\n\
+        \nRaises:\n    HTTPException: 502 if Sonarr/Radarr can't be reached or the\
+        \ item doesn't exist."
+      operationId: get_library_item_api_media_library__media_type___id__get
+      security:
+      - OAuth2PasswordBearer: []
+      parameters:
+      - name: media_type
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/MediaType'
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: integer
+          title: Id
+      responses:
+        '200':
+          description: Successful Response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MediaResultResponse'
+        '422':
+          description: Validation Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HTTPValidationError'
   /api/media/add:
     post:
       tags:
@@ -320,6 +359,79 @@ components:
       - term
       - external_id
       title: AddMediaRequest
+    DownloadStatusResponse:
+      properties:
+        status:
+          type: string
+          title: Status
+        tracked_download_state:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tracked Download State
+        tracked_download_status:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Tracked Download Status
+        title:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Title
+        size:
+          type: number
+          title: Size
+        size_remaining:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Size Remaining
+        time_remaining:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Time Remaining
+        estimated_completion:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Estimated Completion
+        protocol:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Protocol
+        download_client:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Download Client
+        indexer:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Indexer
+        error_message:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Error Message
+      type: object
+      required:
+      - status
+      - tracked_download_state
+      - tracked_download_status
+      - title
+      - size
+      - size_remaining
+      - time_remaining
+      - estimated_completion
+      - protocol
+      - download_client
+      - indexer
+      - error_message
+      title: DownloadStatusResponse
     HTTPValidationError:
       properties:
         detail:
@@ -404,6 +516,10 @@ components:
           - type: string
           - type: 'null'
           title: Studio
+        download_status:
+          anyOf:
+          - $ref: '#/components/schemas/DownloadStatusResponse'
+          - type: 'null'
       type: object
       required:
       - media_type
@@ -420,6 +536,7 @@ components:
       - rating
       - network
       - studio
+      - download_status
       title: MediaResultResponse
     MediaSearchResultResponse:
       properties:

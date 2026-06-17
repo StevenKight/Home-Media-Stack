@@ -2,7 +2,7 @@
 
 import type { Client, Options as Options2, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddMediaApiMediaAddPostData, AddMediaApiMediaAddPostErrors, AddMediaApiMediaAddPostResponses, HealthCheckApiHealthGetData, HealthCheckApiHealthGetResponses, ListLibraryApiMediaLibraryGetData, ListLibraryApiMediaLibraryGetResponses, LoginApiAuthLoginPostData, LoginApiAuthLoginPostErrors, LoginApiAuthLoginPostResponses, ReadUsersMeApiAuthMeGetData, ReadUsersMeApiAuthMeGetResponses, RegisterApiAuthRegisterPostData, RegisterApiAuthRegisterPostErrors, RegisterApiAuthRegisterPostResponses, RemoveMediaApiMediaRemovePostData, RemoveMediaApiMediaRemovePostErrors, RemoveMediaApiMediaRemovePostResponses, RequestPasswordResetApiAuthRequestPasswordResetPostData, RequestPasswordResetApiAuthRequestPasswordResetPostErrors, RequestPasswordResetApiAuthRequestPasswordResetPostResponses, ResetPasswordApiAuthResetPasswordPostData, ResetPasswordApiAuthResetPasswordPostErrors, ResetPasswordApiAuthResetPasswordPostResponses, SearchMediaApiMediaSearchGetData, SearchMediaApiMediaSearchGetErrors, SearchMediaApiMediaSearchGetResponses } from './types.gen';
+import type { AddMediaApiMediaAddPostData, AddMediaApiMediaAddPostErrors, AddMediaApiMediaAddPostResponses, GetLibraryItemApiMediaLibraryMediaTypeIdGetData, GetLibraryItemApiMediaLibraryMediaTypeIdGetErrors, GetLibraryItemApiMediaLibraryMediaTypeIdGetResponses, HealthCheckApiHealthGetData, HealthCheckApiHealthGetResponses, ListLibraryApiMediaLibraryGetData, ListLibraryApiMediaLibraryGetResponses, LoginApiAuthLoginPostData, LoginApiAuthLoginPostErrors, LoginApiAuthLoginPostResponses, ReadUsersMeApiAuthMeGetData, ReadUsersMeApiAuthMeGetResponses, RegisterApiAuthRegisterPostData, RegisterApiAuthRegisterPostErrors, RegisterApiAuthRegisterPostResponses, RemoveMediaApiMediaRemovePostData, RemoveMediaApiMediaRemovePostErrors, RemoveMediaApiMediaRemovePostResponses, RequestPasswordResetApiAuthRequestPasswordResetPostData, RequestPasswordResetApiAuthRequestPasswordResetPostErrors, RequestPasswordResetApiAuthRequestPasswordResetPostResponses, ResetPasswordApiAuthResetPasswordPostData, ResetPasswordApiAuthResetPasswordPostErrors, ResetPasswordApiAuthResetPasswordPostResponses, SearchMediaApiMediaSearchGetData, SearchMediaApiMediaSearchGetErrors, SearchMediaApiMediaSearchGetResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -173,6 +173,25 @@ export const searchMediaApiMediaSearchGet = <ThrowOnError extends boolean = fals
 export const listLibraryApiMediaLibraryGet = <ThrowOnError extends boolean = false>(options?: Options<ListLibraryApiMediaLibraryGetData, ThrowOnError>) => (options?.client ?? client).get<ListLibraryApiMediaLibraryGetResponses, unknown, ThrowOnError>({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/media/library',
+    ...options
+});
+
+/**
+ * Get Library Item
+ *
+ * Return the details of a single library item, including its current
+ * download status if Sonarr/Radarr has it queued or downloading.
+ *
+ * Args:
+ * media_type: Whether `id` refers to a series (Sonarr) or movie (Radarr).
+ * id: The Sonarr or Radarr internal id, as returned by /media/library.
+ *
+ * Raises:
+ * HTTPException: 502 if Sonarr/Radarr can't be reached or the item doesn't exist.
+ */
+export const getLibraryItemApiMediaLibraryMediaTypeIdGet = <ThrowOnError extends boolean = false>(options: Options<GetLibraryItemApiMediaLibraryMediaTypeIdGetData, ThrowOnError>) => (options.client ?? client).get<GetLibraryItemApiMediaLibraryMediaTypeIdGetResponses, GetLibraryItemApiMediaLibraryMediaTypeIdGetErrors, ThrowOnError>({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/media/library/{media_type}/{id}',
     ...options
 });
 
