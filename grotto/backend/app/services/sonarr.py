@@ -49,6 +49,11 @@ class SeriesSearchResult:
     network: str | None
     seasons: int
     already_in_library: bool
+    poster_url: str | None
+    fanart_url: str | None
+    genres: list[str]
+    runtime: int | None
+    rating: float | None
     raw: dict[str, Any]
 
 
@@ -60,6 +65,14 @@ class SeriesResult:
     tvdb_id: int
     title: str
     monitored: bool
+    year: int | None
+    overview: str | None
+    network: str | None
+    poster_url: str | None
+    fanart_url: str | None
+    genres: list[str]
+    runtime: int | None
+    rating: float | None
     raw: dict[str, Any]
 
 
@@ -291,6 +304,17 @@ class SonarrClient:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _extract_image_url(item: dict[str, Any], cover_type: str) -> str | None:
+        for image in item.get("images") or []:
+            if image.get("coverType") == cover_type:
+                return image.get("remoteUrl") or image.get("url")
+        return None
+
+    @staticmethod
+    def _extract_rating(item: dict[str, Any]) -> float | None:
+        return (item.get("ratings") or {}).get("value")
+
+    @staticmethod
     def _to_search_result(item: dict[str, Any]) -> SeriesSearchResult:
         return SeriesSearchResult(
             tvdb_id=item.get("tvdbId", 0),
@@ -301,6 +325,11 @@ class SonarrClient:
             network=item.get("network"),
             seasons=len(item.get("seasons") or []),
             already_in_library=bool(item.get("id")),
+            poster_url=SonarrClient._extract_image_url(item, "poster"),
+            fanart_url=SonarrClient._extract_image_url(item, "fanart"),
+            genres=item.get("genres") or [],
+            runtime=item.get("runtime"),
+            rating=SonarrClient._extract_rating(item),
             raw=item,
         )
 
@@ -311,6 +340,14 @@ class SonarrClient:
             tvdb_id=item.get("tvdbId", 0),
             title=item.get("title", ""),
             monitored=item.get("monitored", False),
+            year=item.get("year"),
+            overview=item.get("overview"),
+            network=item.get("network"),
+            poster_url=SonarrClient._extract_image_url(item, "poster"),
+            fanart_url=SonarrClient._extract_image_url(item, "fanart"),
+            genres=item.get("genres") or [],
+            runtime=item.get("runtime"),
+            rating=SonarrClient._extract_rating(item),
             raw=item,
         )
 

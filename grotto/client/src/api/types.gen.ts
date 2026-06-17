@@ -80,6 +80,42 @@ export type MediaResultResponse = {
      * External Id
      */
     external_id: number;
+    /**
+     * Year
+     */
+    year: number | null;
+    /**
+     * Overview
+     */
+    overview: string | null;
+    /**
+     * Poster Url
+     */
+    poster_url: string | null;
+    /**
+     * Fanart Url
+     */
+    fanart_url: string | null;
+    /**
+     * Genres
+     */
+    genres: Array<string>;
+    /**
+     * Runtime
+     */
+    runtime: number | null;
+    /**
+     * Rating
+     */
+    rating: number | null;
+    /**
+     * Network
+     */
+    network: string | null;
+    /**
+     * Studio
+     */
+    studio: string | null;
 };
 
 /**
@@ -107,6 +143,34 @@ export type MediaSearchResultResponse = {
      * External Id
      */
     external_id: number;
+    /**
+     * Poster Url
+     */
+    poster_url: string | null;
+    /**
+     * Fanart Url
+     */
+    fanart_url: string | null;
+    /**
+     * Genres
+     */
+    genres: Array<string>;
+    /**
+     * Runtime
+     */
+    runtime: number | null;
+    /**
+     * Rating
+     */
+    rating: number | null;
+    /**
+     * Network
+     */
+    network: string | null;
+    /**
+     * Studio
+     */
+    studio: string | null;
 };
 
 /**

@@ -51,6 +51,13 @@ class MediaSearchResult:
     overview: str | None
     already_in_library: bool
     external_id: int  # tvdbId for TV, tmdbId for movies
+    poster_url: str | None
+    fanart_url: str | None
+    genres: list[str]
+    runtime: int | None
+    rating: float | None
+    network: str | None  # set for series, None for movies
+    studio: str | None  # set for movies, None for series
     source: SeriesSearchResult | MovieSearchResult
 
 
@@ -63,6 +70,15 @@ class MediaResult:
     title: str
     monitored: bool
     external_id: int  # tvdbId for TV, tmdbId for movies
+    year: int | None
+    overview: str | None
+    poster_url: str | None
+    fanart_url: str | None
+    genres: list[str]
+    runtime: int | None
+    rating: float | None
+    network: str | None  # set for series, None for movies
+    studio: str | None  # set for movies, None for series
     source: SeriesResult | MovieResult
 
 
@@ -234,6 +250,13 @@ class MediaClient:
             overview=item.overview,
             already_in_library=item.already_in_library,
             external_id=item.tvdb_id,
+            poster_url=item.poster_url,
+            fanart_url=item.fanart_url,
+            genres=item.genres,
+            runtime=item.runtime,
+            rating=item.rating,
+            network=item.network,
+            studio=None,
             source=item,
         )
 
@@ -246,6 +269,13 @@ class MediaClient:
             overview=item.overview,
             already_in_library=item.already_in_library,
             external_id=item.tmdb_id,
+            poster_url=item.poster_url,
+            fanart_url=item.fanart_url,
+            genres=item.genres,
+            runtime=item.runtime,
+            rating=item.rating,
+            network=None,
+            studio=item.studio,
             source=item,
         )
 
@@ -257,6 +287,15 @@ class MediaClient:
             title=item.title,
             monitored=item.monitored,
             external_id=item.tvdb_id,
+            year=item.year,
+            overview=item.overview,
+            poster_url=item.poster_url,
+            fanart_url=item.fanart_url,
+            genres=item.genres,
+            runtime=item.runtime,
+            rating=item.rating,
+            network=item.network,
+            studio=None,
             source=item,
         )
 
@@ -268,6 +307,15 @@ class MediaClient:
             title=item.title,
             monitored=item.monitored,
             external_id=item.tmdb_id,
+            year=item.year,
+            overview=item.overview,
+            poster_url=item.poster_url,
+            fanart_url=item.fanart_url,
+            genres=item.genres,
+            runtime=item.runtime,
+            rating=item.rating,
+            network=None,
+            studio=item.studio,
             source=item,
         )
 

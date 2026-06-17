@@ -19,6 +19,13 @@ class MediaSearchResultResponse(BaseModel):
     overview: str | None
     already_in_library: bool
     external_id: int
+    poster_url: str | None
+    fanart_url: str | None
+    genres: list[str]
+    runtime: int | None
+    rating: float | None
+    network: str | None
+    studio: str | None
 
 
 class MediaResultResponse(BaseModel):
@@ -27,6 +34,15 @@ class MediaResultResponse(BaseModel):
     title: str
     monitored: bool
     external_id: int
+    year: int | None
+    overview: str | None
+    poster_url: str | None
+    fanart_url: str | None
+    genres: list[str]
+    runtime: int | None
+    rating: float | None
+    network: str | None
+    studio: str | None
 
 
 class AddMediaRequest(BaseModel):

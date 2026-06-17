@@ -48,6 +48,11 @@ class MovieSearchResult:
     status: str | None
     studio: str | None
     already_in_library: bool
+    poster_url: str | None
+    fanart_url: str | None
+    genres: list[str]
+    runtime: int | None
+    rating: float | None
     raw: dict[str, Any]
 
 
@@ -59,6 +64,14 @@ class MovieResult:
     tmdb_id: int
     title: str
     monitored: bool
+    year: int | None
+    overview: str | None
+    studio: str | None
+    poster_url: str | None
+    fanart_url: str | None
+    genres: list[str]
+    runtime: int | None
+    rating: float | None
     raw: dict[str, Any]
 
 
@@ -291,6 +304,23 @@ class RadarrClient:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _extract_image_url(item: dict[str, Any], cover_type: str) -> str | None:
+        for image in item.get("images") or []:
+            if image.get("coverType") == cover_type:
+                return image.get("remoteUrl") or image.get("url")
+        return None
+
+    @staticmethod
+    def _extract_rating(item: dict[str, Any]) -> float | None:
+        """Pick a single 0-10 rating, preferring TMDB/IMDb over the 0-100 sources."""
+        ratings = item.get("ratings") or {}
+        for source, scale in (("tmdb", 1), ("imdb", 1), ("rottenTomatoes", 10), ("metacritic", 10)):
+            value = (ratings.get(source) or {}).get("value")
+            if value is not None:
+                return round(value / scale, 1)
+        return None
+
+    @staticmethod
     def _to_search_result(item: dict[str, Any]) -> MovieSearchResult:
         return MovieSearchResult(
             tmdb_id=item.get("tmdbId", 0),
@@ -300,6 +330,11 @@ class RadarrClient:
             status=item.get("status"),
             studio=item.get("studio"),
             already_in_library=bool(item.get("id")),
+            poster_url=RadarrClient._extract_image_url(item, "poster"),
+            fanart_url=RadarrClient._extract_image_url(item, "fanart"),
+            genres=item.get("genres") or [],
+            runtime=item.get("runtime"),
+            rating=RadarrClient._extract_rating(item),
             raw=item,
         )
 
@@ -310,6 +345,14 @@ class RadarrClient:
             tmdb_id=item.get("tmdbId", 0),
             title=item.get("title", ""),
             monitored=item.get("monitored", False),
+            year=item.get("year"),
+            overview=item.get("overview"),
+            studio=item.get("studio"),
+            poster_url=RadarrClient._extract_image_url(item, "poster"),
+            fanart_url=RadarrClient._extract_image_url(item, "fanart"),
+            genres=item.get("genres") or [],
+            runtime=item.get("runtime"),
+            rating=RadarrClient._extract_rating(item),
             raw=item,
         )
 

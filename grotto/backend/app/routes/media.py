@@ -68,6 +68,13 @@ def search_media(
             overview=r.overview,
             already_in_library=r.already_in_library,
             external_id=r.external_id,
+            poster_url=r.poster_url,
+            fanart_url=r.fanart_url,
+            genres=r.genres,
+            runtime=r.runtime,
+            rating=r.rating,
+            network=r.network,
+            studio=r.studio,
         )
         for r in results
     ]
@@ -96,6 +103,15 @@ def list_library(
             title=i.title,
             monitored=i.monitored,
             external_id=i.external_id,
+            year=i.year,
+            overview=i.overview,
+            poster_url=i.poster_url,
+            fanart_url=i.fanart_url,
+            genres=i.genres,
+            runtime=i.runtime,
+            rating=i.rating,
+            network=i.network,
+            studio=i.studio,
         )
         for i in items
     ]
@@ -151,6 +167,15 @@ def add_media(
         title=added.title,
         monitored=added.monitored,
         external_id=added.external_id,
+        year=added.year,
+        overview=added.overview,
+        poster_url=added.poster_url,
+        fanart_url=added.fanart_url,
+        genres=added.genres,
+        runtime=added.runtime,
+        rating=added.rating,
+        network=added.network,
+        studio=added.studio,
     )
 
 

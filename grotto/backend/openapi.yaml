@@ -359,6 +359,51 @@ components:
         external_id:
           type: integer
           title: External Id
+        year:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Year
+        overview:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Overview
+        poster_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Poster Url
+        fanart_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fanart Url
+        genres:
+          items:
+            type: string
+          type: array
+          title: Genres
+        runtime:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Runtime
+        rating:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Rating
+        network:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Network
+        studio:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Studio
       type: object
       required:
       - media_type
@@ -366,6 +411,15 @@ components:
       - title
       - monitored
       - external_id
+      - year
+      - overview
+      - poster_url
+      - fanart_url
+      - genres
+      - runtime
+      - rating
+      - network
+      - studio
       title: MediaResultResponse
     MediaSearchResultResponse:
       properties:
@@ -390,6 +444,41 @@ components:
         external_id:
           type: integer
           title: External Id
+        poster_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Poster Url
+        fanart_url:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Fanart Url
+        genres:
+          items:
+            type: string
+          type: array
+          title: Genres
+        runtime:
+          anyOf:
+          - type: integer
+          - type: 'null'
+          title: Runtime
+        rating:
+          anyOf:
+          - type: number
+          - type: 'null'
+          title: Rating
+        network:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Network
+        studio:
+          anyOf:
+          - type: string
+          - type: 'null'
+          title: Studio
       type: object
       required:
       - media_type
@@ -398,6 +487,13 @@ components:
       - overview
       - already_in_library
       - external_id
+      - poster_url
+      - fanart_url
+      - genres
+      - runtime
+      - rating
+      - network
+      - studio
       title: MediaSearchResultResponse
     MediaType:
       type: string
