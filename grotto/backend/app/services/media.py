@@ -118,22 +118,28 @@ class MediaClient:
             term: Title (or partial title) to search for.
 
         Returns:
-            Combined results, TV matches first, then movie matches.
+            Combined results, ranked by closeness of the title to the search
+            term (exact match, then starts-with, then contains), and
+            alphabetically within each tier.
         """
         results: list[MediaSearchResult] = []
         if self.sonarr:
             results += [self._wrap_series_search(item) for item in self.sonarr.search_series(term)]
         if self.radarr:
             results += [self._wrap_movie_search(item) for item in self.radarr.search_movies(term)]
+
+        results.sort(key=lambda item: self._relevance_key(item.title, term))
         return results
 
     def get_library(self) -> list[MediaResult]:
-        """Return everything currently in the Sonarr and Radarr libraries."""
+        """Return everything currently in the Sonarr and Radarr libraries, sorted alphabetically by title."""
         library: list[MediaResult] = []
         if self.sonarr:
             library += [self._wrap_series_result(item) for item in self.sonarr.get_library_series()]
         if self.radarr:
             library += [self._wrap_movie_result(item) for item in self.radarr.get_library_movies()]
+
+        library.sort(key=lambda item: item.title.lower())
         return library
 
     # ------------------------------------------------------------------
@@ -240,6 +246,21 @@ class MediaClient:
     # ------------------------------------------------------------------
     # Internal conversion helpers
     # ------------------------------------------------------------------
+
+    @staticmethod
+    def _relevance_key(title: str, term: str) -> tuple[int, str]:
+        """Rank exact matches first, then starts-with, then contains, then the rest; alphabetical within each tier."""
+        title_lower = title.lower()
+        term_lower = term.lower()
+        if title_lower == term_lower:
+            tier = 0
+        elif title_lower.startswith(term_lower):
+            tier = 1
+        elif term_lower in title_lower:
+            tier = 2
+        else:
+            tier = 3
+        return (tier, title_lower)
 
     @staticmethod
     def _wrap_series_search(item: SeriesSearchResult) -> MediaSearchResult:
